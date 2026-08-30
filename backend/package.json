@@ -1,0 +1,24 @@
+{
+    "name": "backend",
+    "version": "1.0.0",
+    "description": "Expense Reimbursement API",
+    "main": "index.js",
+    "scripts": {
+        "dev": "nodemon src/index.js",
+        "start": "node src/index.js",
+        "db:push": "prisma db push",
+        "db:generate": "prisma generate",
+        "db:studio": "prisma studio",
+        "db:seed": "node prisma/seed.js"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "commonjs",
+    "devDependencies": {
+        "prisma": "^5.11.0"
+    },
+    "dependencies": {
+        "@prisma/client": "^5.11.0"
+    }
+}
