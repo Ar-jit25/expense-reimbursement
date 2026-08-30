@@ -13,3 +13,7 @@ venv/
 
 # Personal study notes
 docs/study.md
+
+# Local-only agent instructions and personal files
+agent/
+PERSONAL/
