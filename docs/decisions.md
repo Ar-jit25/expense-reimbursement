@@ -26,3 +26,14 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Chose:** Modular middleware (`requireRole` and `requireResourceOwnership`).
 - **Rejected:** Checking roles and ownership manually inside every route handler.
 - **Why:** The instructions stress that we must never trust the frontend for roles or ownership. If these checks are manual in every endpoint, one developer forgetting to add the check introduces a critical vulnerability. Middleware makes authorization declarative and difficult to skip.
+
+
+## Decision 5: Controller-Service Architecture (Phase 3)
+- **Chose:** A strict 3-tier architecture: Routes -> Controllers -> Services.
+- **Rejected:** Fat Route Handlers (putting `prisma.query` directly inside `app.get()`).
+- **Why:** While Fat Route Handlers are faster to write, they make unit testing impossible without mocking the entire HTTP request. Separating business logic into a `Service` class means we can theoretically call `ReportService.createReport()` from a background cron job, a script, or a WebSocket, without an Express `req` or `res` object existing.
+
+## Decision 6: The "Total" Calculation Endpoint (Phase 3)
+- **Chose:** Calculating the total during the Prisma `GET` query map: `reports.map(report => report.lines.reduce(sum, line))`.
+- **Rejected:** Sending just the lines to the frontend and trusting the frontend to calculate the total.
+- **Why:** The instructions were explicit: "Never trust a client-provided total" and "do not add a stored authoritative total". By calculating it on the server right before sending the JSON response, the frontend gets a clean, authoritative `$220.00` and doesn't need to write error-prone floating-point math.

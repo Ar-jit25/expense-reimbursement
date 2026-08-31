@@ -88,3 +88,40 @@ documented.
 
 ---
 
+## Phase 3 — Reports + Expense Lines
+
+### Intended work (recorded before implementation began)
+
+**Goal**: Implement the core CRUD functionality for expense reports and their associated line items, strictly enforcing ownership and lifecycle state (DRAFT) constraints on the server.
+
+**Build order and rationale**:
+1. **API Structure**: Setup `routes/`, `controllers/`, and `services/` layers for separation of concerns.
+2. **Report Endpoints**: 
+   - `POST /api/reports` (create)
+   - `GET /api/reports` (list user's own reports, omitting archived by default)
+   - `GET /api/reports/:id` (view specific report + lines + calculated total)
+   - `PUT /api/reports/:id` (edit title/dates, must be DRAFT)
+   - `PUT /api/reports/:id/archive` and `/restore` (visibility toggle)
+3. **Expense Line Endpoints**:
+   - `POST /api/reports/:id/lines` (add line, report must be DRAFT)
+   - `PUT /api/reports/:id/lines/:lineId` (edit line)
+   - `DELETE /api/reports/:id/lines/:lineId` (remove line)
+4. **Authorization Enforcement**: Integrate `requireResourceOwnership` from Phase 2.
+5. **Business Logic**: Prevent modifications to non-DRAFT reports. Calculate `total` dynamically on `GET` requests instead of storing it.
+
+**Why Services/Controllers pattern**: Keeping Prisma queries and business logic inside a `Service` makes it easier to unit test, reuse internally, and keeps Express `Controllers` focused on HTTP request/response parsing.
+
+**Estimated time**: 2-3 hours.
+
+**What can be deferred if time is short**: Advanced input validation frameworks (e.g., Joi/Zod) can be simplified to manual checks for now to prioritize core logic.
+
+**What cannot be deferred**: Server-side total calculation. Ownership checks. Rejecting edits on SUBMITTED/APPROVED reports.
+
+---
+
+### Actual results (recorded after Phase 3 completed)
+
+*Pending — will be filled in after implementation and verification.*
+
+---
+

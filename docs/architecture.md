@@ -18,3 +18,12 @@ Answer each of these, in your own words, once the system has taken real shape.
   - For the database schema, I decided *not* to use a NoSQL or document-based approach. Expense reports have strict relational needs (reports have lines, reports have statuses and history logs).
   - I decided *not* to track expense `total` in the DB. It is computed dynamically to avoid out-of-sync state.
   - I decided *not* to implement custom JWTs, Bcrypt hashing, or session cookies. Using Supabase Auth offloads password security and standardizes Bearer token authentication, which perfectly serves the Express API.
+
+### Representative Request Path (Phase 3: Adding an Expense Line)
+1. **Client** sends `POST /api/reports/1/lines` with a valid JWT in the `Authorization` header.
+2. **`requireAuth` middleware** verifies the JWT with Supabase, fetches the Prisma `User`, and attaches `req.user`.
+3. **`requireReportOwner` middleware** queries Prisma to verify Report #1 exists and its `ownerId` matches `req.user.id`. It also stashes the report's status on the request object.
+4. **`requireDraftReport` middleware** verifies the stashed status is `DRAFT`. If it were `SUBMITTED`, it would reject the request with a 400 Bad Request.
+5. **`LineController`** parses the `req.body` ensuring date, amount, category, and description are present.
+6. **`LineService`** executes the `prisma.expenseLine.create` query.
+7. **Controller** returns `201 Created` with the new expense line data.
