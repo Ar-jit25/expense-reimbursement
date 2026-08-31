@@ -57,3 +57,34 @@ documented.
 - Actual time spent was considerably less in active development, although diagnosing the Prisma CLI/Client mismatch consumed additional debugging cycles.
 
 ---
+## Phase 2 — Authentication + Backend Authorization
+
+### Intended work (recorded before implementation began)
+
+**Goal**: Establish authenticated identity and server-side permissions using Supabase Auth (email/password) and Express middleware.
+
+**Build order and rationale**:
+1. Install necessary dependencies (`express`, `@supabase/supabase-js`, `dotenv`, etc.) in `backend/`.
+2. Configure a Supabase client to interact with Supabase Auth.
+3. Create an Express server with an authentication middleware (`auth.js`) that verifies Supabase JWTs and resolves the user's application profile (and role) from the database.
+4. Implement authorization helper functions (e.g., `requireRole`, `requireOwner`) to enforce RBAC.
+5. Build a protected test endpoint (`GET /api/me` or similar) to verify auth/authorization flows.
+6. Write integration scripts/tests to verify that unauthenticated requests fail, roles are respected, and ownership is checked.
+7. Document the backend authentication/authorization flow in `study.md`, `architecture.md`, and `decisions.md`.
+
+**Why Auth first (before API logic)**: It's extremely difficult and insecure to retrofit authentication and authorization onto existing endpoints. Establishing the identity layer and authorization middleware now ensures all subsequent feature endpoints (Phase 3+) are built securely by design.
+
+**Estimated time**: 1.5 - 2 hours.
+
+**What can be deferred if time is short**: The test endpoints can be minimal.
+
+**What cannot be deferred**: Correct parsing of the JWT, verification of the user profile, and foolproof role determination logic in Express.
+
+---
+
+### Actual results (recorded after Phase 2 completed)
+
+*Pending — will be filled in after implementation and verification.*
+
+---
+

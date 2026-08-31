@@ -17,17 +17,12 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Rejected:** Storing a `total` decimal column directly on `ExpenseReport`.
 - **Why:** The instructions explicitly forbid trusting the frontend for totals. If `total` is a column on the report, every line update requires a transaction to update the report total. This risks desync bugs. Computing it via Prisma/SQL guarantees the single source of truth is the lines themselves.
 
-## Decision 3 (Pending Phase 2)
-- **Chose:** 
-- **Rejected:** 
-- **Why:** 
+## Decision 3: Profile Linking (Phase 2)
+- **Chose:** "On-the-fly" profile creation in Express `requireAuth` middleware.
+- **Rejected:** Creating users via Supabase Database Triggers (`auth.users` -> `public.users`).
+- **Why:** While Postgres triggers are "cleaner" for automatic row creation, they hide application logic in the database layer. By explicitly doing `prisma.user.upsert`/`create` inside the Express middleware when a valid token is seen for the first time, the profile creation logic (and default role assignment) stays inside the version-controlled Node.js application where developers expect to find it.
 
-## Decision 4 (Pending Phase 2)
-- **Chose:** 
-- **Rejected:** 
-- **Why:** 
-
-## Decision 5 (Pending Phase 2)
-- **Chose:** 
-- **Rejected:** 
-- **Why:** 
+## Decision 4: Authorization Enforcement (Phase 2)
+- **Chose:** Modular middleware (`requireRole` and `requireResourceOwnership`).
+- **Rejected:** Checking roles and ownership manually inside every route handler.
+- **Why:** The instructions stress that we must never trust the frontend for roles or ownership. If these checks are manual in every endpoint, one developer forgetting to add the check introduces a critical vulnerability. Middleware makes authorization declarative and difficult to skip.

@@ -16,9 +16,14 @@
     "license": "ISC",
     "type": "commonjs",
     "devDependencies": {
-        "prisma": "^5.11.0"
+        "prisma": "^5.11.0",
+        "supertest": "^7.2.2"
     },
     "dependencies": {
-        "@prisma/client": "^5.11.0"
+        "@prisma/client": "^5.11.0",
+        "@supabase/supabase-js": "^2.112.4",
+        "cors": "^2.8.6",
+        "dotenv": "^17.4.2",
+        "express": "^5.2.1"
     }
 }
