@@ -27,3 +27,16 @@ Answer each of these, in your own words, once the system has taken real shape.
 5. **`LineController`** parses the `req.body` ensuring date, amount, category, and description are present.
 6. **`LineService`** executes the `prisma.expenseLine.create` query.
 7. **Controller** returns `201 Created` with the new expense line data.
+
+### Representative Request Path (Phase 4: Approving a Report)
+1. **Client (Approver)** sends `POST /api/reports/1/approve` with a valid JWT.
+2. **`requireAuth`** verifies identity (User is John).
+3. **`requireRole('APPROVER')`** verifies John is an Approver.
+4. **`requireNotReportOwner`** verifies John did *not* create Report #1. (If he did, request is rejected).
+5. **`ReportController.approve`** catches the request.
+6. **`ReportService._transitionState`** opens a Prisma `$transaction`:
+   - Checks if Report #1 is currently `SUBMITTED`. If not, aborts.
+   - Updates `status` to `APPROVED` and sets `approvedAt = now()`.
+   - Inserts into `ReportHistory` recording John's ID, `SUBMITTED -> APPROVED`.
+   - Commits transaction.
+7. **Controller** returns `200 OK`.

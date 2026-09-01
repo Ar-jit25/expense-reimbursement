@@ -37,3 +37,14 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Chose:** Calculating the total during the Prisma `GET` query map: `reports.map(report => report.lines.reduce(sum, line))`.
 - **Rejected:** Sending just the lines to the frontend and trusting the frontend to calculate the total.
 - **Why:** The instructions were explicit: "Never trust a client-provided total" and "do not add a stored authoritative total". By calculating it on the server right before sending the JSON response, the frontend gets a clean, authoritative `$220.00` and doesn't need to write error-prone floating-point math.
+
+
+## Decision 7: Explicit State Transitions vs. Generic Updates (Phase 4)
+- **Chose:** Explicit endpoints (`POST /api/reports/:id/approve`).
+- **Rejected:** Allowing clients to send `PUT /api/reports/:id { status: 'APPROVED' }`.
+- **Why:** The State Machine. A generic update endpoint relies on the frontend knowing the rules, which violates the security model. By creating explicit transition endpoints, the backend strictly orchestrates the atomic transaction: checking the prerequisite state, changing the state, stamping the timestamp, and logging the history.
+
+## Decision 8: Transaction Atomicity (Phase 4)
+- **Chose:** `prisma.$transaction`.
+- **Rejected:** Awaiting sequential `.update()` and `.create()` calls.
+- **Why:** If the server crashes or the network drops after `.update()` completes but before the `ReportHistory.create()` completes, the audit log is permanently corrupted. A database transaction ensures both succeed, or neither succeeds.

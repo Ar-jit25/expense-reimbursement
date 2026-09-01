@@ -125,3 +125,44 @@ documented.
 
 ---
 
+## Phase 4 — Report Lifecycle State Machine + Immutable History
+
+### Intended work (recorded before implementation began)
+
+**Goal**: Implement the core state machine for expense reports (DRAFT -> SUBMITTED -> APPROVED -> PAID) and (SUBMITTED -> REJECTED -> DRAFT). Enforce authorization, prevent invalid transitions, and maintain an immutable audit trail using database transactions.
+
+**Build order and rationale**:
+1. **API Endpoints**: Add specific lifecycle RPC-style routes to `report.routes.js`:
+   - `POST /api/reports/:id/submit` (Owner only)
+   - `POST /api/reports/:id/approve` (Approver only, NOT owner)
+   - `POST /api/reports/:id/reject` (Approver only, NOT owner. Requires reason)
+   - `POST /api/reports/:id/pay` (Approver only, NOT owner)
+   - `POST /api/reports/:id/reset` (Owner only, moves REJECTED -> DRAFT)
+2. **Authorization Middleware**: 
+   - Create `requireNotReportOwner` to ensure approvers cannot act on their own reports.
+3. **Service Logic (The State Machine)**:
+   - Use Prisma `$transaction` to ensure Atomicity.
+   - For every transition:
+     - Verify current status matches expected pre-requisite.
+     - Update status.
+     - Set appropriate timestamp (`submittedAt`, `approvedAt`, `paidAt`).
+     - `CREATE` a `ReportHistory` record locking in the actor, old status, new status, and reason.
+4. **Verification**: 
+   - Build a rigorous integration script testing all happy paths and asserting failures on invalid transitions, bad roles, and self-approval attempts.
+
+**Why explicit RPC endpoints instead of `PUT /api/reports/:id { status: 'APPROVED' }`**: Allowing a generic update endpoint to mutate the status is incredibly dangerous. It allows clients to bypass the state machine, skip timestamp assignments, and skip audit history creation. Explicit endpoints (`/approve`) guarantee the transaction block is executed exactly as designed.
+
+**Estimated time**: 2.5 hours.
+
+**What can be deferred if time is short**: Nothing. History, timestamps, and transactions are critical financial constraints.
+
+**What cannot be deferred**: `requireNotReportOwner`. Prisma `$transaction`.
+
+---
+
+### Actual results (recorded after Phase 4 completed)
+
+*Pending — will be filled in after implementation and verification.*
+
+---
+

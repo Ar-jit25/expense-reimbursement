@@ -60,6 +60,67 @@ class ReportController {
       res.status(500).json({ error: 'Failed to update archive status' });
     }
   }
+// ==========================================
+  // PHASE 4: STATE MACHINE TRANSITIONS
+  // ==========================================
+
+  async submit(req, res) {
+    try {
+      const report = await reportService.submitReport(req.params.id, req.user.id);
+      res.json(report);
+    } catch (err) {
+      console.error(err);
+      if (err.message.includes('Invalid transition')) return res.status(400).json({ error: err.message });
+      res.status(500).json({ error: 'Failed to submit report' });
+    }
+  }
+
+  async approve(req, res) {
+    try {
+      const report = await reportService.approveReport(req.params.id, req.user.id);
+      res.json(report);
+    } catch (err) {
+      console.error(err);
+      if (err.message.includes('Invalid transition')) return res.status(400).json({ error: err.message });
+      res.status(500).json({ error: 'Failed to approve report' });
+    }
+  }
+
+  async reject(req, res) {
+    try {
+      const report = await reportService.rejectReport(req.params.id, req.user.id, req.body?.reason);
+      res.json(report);
+    } catch (err) {
+      console.error(err);
+      if (err.message.includes('reason is required')) return res.status(400).json({ error: err.message });
+      if (err.message.includes('Invalid transition')) return res.status(400).json({ error: err.message });
+      res.status(500).json({ error: 'Failed to reject report' });
+    }
+  }
+
+  async pay(req, res) {
+    try {
+      const report = await reportService.payReport(req.params.id, req.user.id);
+      res.json(report);
+    } catch (err) {
+      console.error(err);
+      if (err.message.includes('Invalid transition')) return res.status(400).json({ error: err.message });
+      res.status(500).json({ error: 'Failed to mark report as paid' });
+    }
+  }
+
+  async reset(req, res) {
+    try {
+      const report = await reportService.resetToDraft(req.params.id, req.user.id);
+      res.json(report);
+    } catch (err) {
+      console.error(err);
+      if (err.message.includes('Invalid transition')) return res.status(400).json({ error: err.message });
+      res.status(500).json({ error: 'Failed to reset report to draft' });
+    }
+  }
 }
 
 module.exports = new ReportController();
+
+

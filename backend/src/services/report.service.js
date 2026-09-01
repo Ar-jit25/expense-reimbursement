@@ -64,6 +64,73 @@ class ReportService {
       data: { isArchived }
     });
   }
+// ==========================================
+  // PHASE 4: STATE MACHINE TRANSITIONS
+  // ==========================================
+
+  /**
+   * Helper to execute a valid state transition transaction.
+   * Encapsulates the core logic: Check State -> Update Status/Timestamps -> Create History.
+   */
+  async _transitionState(id, actorId, fromStatus, toStatus, timestampField, reason = null) {
+    return prisma.$transaction(async (tx) => {
+      const report = await tx.expenseReport.findUnique({ where: { id: parseInt(id) } });
+      if (!report) throw new Error('Report not found');
+      
+      // Strict state machine validation
+      if (report.status !== fromStatus) {
+        throw new Error(`Invalid transition: Cannot move from ${report.status} to ${toStatus}. Expected ${fromStatus}.`);
+      }
+
+      // Prepare update payload
+      const data = { status: toStatus };
+      if (timestampField === 'submittedAt') data.submittedAt = new Date();
+      if (timestampField === 'approvedAt') data.approvedAt = new Date();
+      if (timestampField === 'paidAt') data.paidAt = new Date();
+
+      // 1. Update the report
+      const updatedReport = await tx.expenseReport.update({
+        where: { id: parseInt(id) },
+        data
+      });
+
+      // 2. Write the immutable audit log
+      await tx.reportHistory.create({
+        data: {
+          reportId: updatedReport.id,
+          actorId,
+          fromStatus,
+          toStatus,
+          reason
+        }
+      });
+
+      return updatedReport;
+    });
+  }
+
+  async submitReport(id, ownerId) {
+    // Note: ownerId verification is assumed to happen in middleware, but passing it for history log
+    return this._transitionState(id, ownerId, 'DRAFT', 'SUBMITTED', 'submittedAt');
+  }
+
+  async approveReport(id, approverId) {
+    return this._transitionState(id, approverId, 'SUBMITTED', 'APPROVED', 'approvedAt');
+  }
+
+  async rejectReport(id, approverId, reason) {
+    if (!reason || reason.trim().length === 0) throw new Error('Rejection reason is required');
+    return this._transitionState(id, approverId, 'SUBMITTED', 'REJECTED', null, reason);
+  }
+
+  async payReport(id, approverId) {
+    return this._transitionState(id, approverId, 'APPROVED', 'PAID', 'paidAt');
+  }
+
+  async resetToDraft(id, ownerId) {
+    return this._transitionState(id, ownerId, 'REJECTED', 'DRAFT', null);
+  }
 }
 
 module.exports = new ReportService();
+
