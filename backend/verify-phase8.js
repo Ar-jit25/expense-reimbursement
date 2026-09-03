@@ -1,3 +1,4 @@
+process.env.MOCK_AUTH = 'true';
 ﻿require('dotenv').config();
 const request = require('supertest');
 const express = require('express');
@@ -13,12 +14,7 @@ const employeeId = '00000000-0000-0000-0000-000000000011';
 const approverId = '00000000-0000-0000-0000-000000000022';
 const approver2Id = '00000000-0000-0000-0000-000000000033';
 
-supabase.auth.getUser = async (token) => {
-  if (token === 'TOKEN_EMP') return { data: { user: { id: employeeId, email: 'emp@example.com' } }, error: null };
-  if (token === 'TOKEN_APP1') return { data: { user: { id: approverId, email: 'app@example.com' } }, error: null };
-  if (token === 'TOKEN_APP2') return { data: { user: { id: approver2Id, email: 'app2@example.com' } }, error: null };
-  return { data: { user: null }, error: { message: 'Invalid token' } };
-};
+
 
 const app = express();
 app.use(express.json());

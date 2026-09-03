@@ -1,3 +1,4 @@
+process.env.MOCK_AUTH = 'true';
 ﻿require('dotenv').config();
 const prisma = require('./src/config/prisma');
 const express = require('express');
@@ -10,13 +11,7 @@ const employee2Id = '00000000-0000-0000-0000-000000000012';
 const approver1Id = '00000000-0000-0000-0000-000000000022';
 const approver2Id = '00000000-0000-0000-0000-000000000033';
 
-supabase.auth.getUser = async (token) => {
-  if (token === 'TOKEN_EMP') return { data: { user: { id: employeeId, email: 'emp@example.com' } }, error: null };
-  if (token === 'TOKEN_EMP2') return { data: { user: { id: employee2Id, email: 'emp2@example.com' } }, error: null };
-  if (token === 'TOKEN_APP1') return { data: { user: { id: approver1Id, email: 'app1@example.com' } }, error: null };
-  if (token === 'TOKEN_APP2') return { data: { user: { id: approver2Id, email: 'app2@example.com' } }, error: null };
-  return { data: { user: null }, error: { message: 'Invalid token' } };
-};
+
 
 const app = express();
 app.use(express.json());

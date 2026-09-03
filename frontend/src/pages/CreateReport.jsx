@@ -7,6 +7,8 @@ import { formatCurrency } from '../utils/formatters';
 export default function CreateReport() {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [lines, setLines] = useState([{ date: '', amount: '', category: 'TRAVEL', description: '' }]);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -35,7 +37,9 @@ export default function CreateReport() {
       setSaving(true);
       setError(null);
       
-      const report = await reportsService.createReport({ title });
+      if (!dateFrom) return setError('Date From is required');
+    if (!dateTo) return setError('Date To is required');
+    const report = await reportsService.createReport({ title, dateFrom, dateTo });
       
       for (const line of lines) {
         if (line.date && line.amount && line.category && line.description) {
@@ -62,6 +66,17 @@ export default function CreateReport() {
         <div className="mb-6">
           <label className="text-sm font-medium" style={{ display: 'block', marginBottom: '0.5rem' }}>Report Title</label>
           <input className="input" required value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g., Q3 Sales Trip to NYC" />
+        </div>
+
+        <div className="flex gap-4 mb-6">
+          <div style={{ flex: 1 }}>
+            <label className="text-sm font-medium" style={{ display: 'block', marginBottom: '0.5rem' }}>Date From</label>
+            <input type="date" className="input" required value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label className="text-sm font-medium" style={{ display: 'block', marginBottom: '0.5rem' }}>Date To</label>
+            <input type="date" className="input" required value={dateTo} onChange={e => setDateTo(e.target.value)} />
+          </div>
         </div>
 
         <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem' }}>Expense Lines</h3>
@@ -105,4 +120,5 @@ export default function CreateReport() {
     </div>
   );
 }
+
 
