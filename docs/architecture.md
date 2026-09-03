@@ -61,3 +61,8 @@ Our Express middleware utilizes three distinct layers of authorization before re
 - **State Management:** AuthContext provides global user identity. Local state (useState) handles individual page states, forms, and loading indicators.
 - **Service Layer:** piClient.js intercepts all outbound fetch requests to inject the Authorization: Bearer <token> header, and standardizes error throwing by parsing the backend's JSON error messages.
 - **Data Fetching:** Standard useEffect hooks trigger etchReports methods from the eports.js service, updating local state variables and triggering re-renders.
+
+
+## Phase 8: Bulk Operations & Export
+- **Bulk API**: Endpoints accept arrays of IDs. The controller iterates through them, manually asserting authorization rules, and calls the service layer. Results are accumulated into `successful` and `failed` arrays to ensure partial successes do not roll back valid transitions.
+- **CSV Export**: The endpoint directly calls `reportService.getReports` with `isPaginated: false`, generating CSV streams dynamically without risking data leaks via separate queries.

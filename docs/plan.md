@@ -231,3 +231,11 @@ During Phase 4, the authorization condition for `/approve`, `/reject`, and `/pay
 - Built Approvals queue with tabs for Global Submitted and Assigned to Me.
 **Deviations**: None.
 **Verification Outcome**: Manual build and routing confirmed. All backend regression verification scripts (Phase 4, 5, 6) continue to pass perfectly since backend logic was completely untouched.
+
+
+# Phase 8 --- Bulk Actions & CSV Export
+
+## Goal
+Implemented bulk approve and bulk reject with independent report processing. Added CSV export reusing the existing reportService filtering and authorization pipeline to ensure consistent data visibility. Verified via new phase 8 tests.
+
+Commit: feat: add bulk actions and CSV export

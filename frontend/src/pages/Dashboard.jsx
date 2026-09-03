@@ -49,9 +49,20 @@ export default function Dashboard() {
           {user.role === 'EMPLOYEE' ? 'My Reports' : 'All Reports Dashboard'}
         </h1>
         {user.role === 'EMPLOYEE' && (
-          <button className="btn btn-primary" onClick={() => navigate('/reports/new')}>
+          
+        <div>
+          <button className="btn btn-primary mr-2" onClick={() => navigate('/reports/new')}>
             Create Report
           </button>
+          <button className="btn btn-outline" onClick={async () => {
+            try {
+              await reportsService.downloadCsv({ status: filterStatus !== 'ALL' ? filterStatus : undefined, search: searchQuery || undefined });
+            } catch(e) { alert("Failed to export: " + e.message); }
+          }}>
+            Export CSV
+          </button>
+        </div>
+
         )}
       </div>
 

@@ -12,6 +12,12 @@ router.use(requireAuth);
 // --- Report Endpoints ---
 router.post('/', reportController.create);
 router.get('/', reportController.list);
+
+// --- Phase 8: Bulk Actions & Export ---
+router.post('/bulk/approve', requireRole('APPROVER'), reportController.bulkApprove);
+router.post('/bulk/reject', requireRole('APPROVER'), reportController.bulkReject);
+router.get('/export/csv', reportController.exportCsv);
+
 // Protected by ownership
 router.get('/:id', requireReportOwner, reportController.get);
 // Protected by ownership AND lifecycle state (DRAFT only)
@@ -40,5 +46,7 @@ router.post('/:id/reset', requireReportOwner, reportController.reset);
 router.post('/:id/assignments', requireRole('APPROVER'), requireNotReportOwner, requireReportSubmitted, reportController.assignApprover);
 router.delete('/:id/assignments/:approverId', requireRole('APPROVER'), requireNotReportOwner, requireReportSubmitted, reportController.removeAssignment);
 
+
 module.exports = router;
+
 

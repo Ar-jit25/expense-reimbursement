@@ -195,6 +195,136 @@ class ReportController {
     }
   }
 
+
+// ==========================================
+  // PHASE 8: BULK ACTIONS & CSV EXPORT
+  // ==========================================
+
+  async bulkApprove(req, res) {
+    try {
+      const { reportIds } = req.body;
+      if (!Array.isArray(reportIds) || reportIds.length === 0) {
+        return res.status(400).json({ error: 'reportIds must be a non-empty array' });
+      }
+
+      async function checkAuth(reportId, userId) {
+        const report = await prisma.expenseReport.findUnique({
+          where: { id: parseInt(reportId) },
+          select: { ownerId: true }
+        });
+        if (!report) throw new Error('Report not found');
+        if (report.ownerId === userId) throw new Error('Forbidden: You cannot perform this action on your own report');
+        
+        const assignment = await prisma.reportApprover.findUnique({
+          where: {
+            reportId_approverId: { reportId: parseInt(reportId), approverId: userId }
+          }
+        });
+        if (!assignment) throw new Error('Forbidden: You are not assigned to review this report');
+      }
+
+      const successful = [];
+      const failed = [];
+
+      for (const id of reportIds) {
+        try {
+          await checkAuth(id, req.user.id);
+          const report = await reportService.approveReport(id, req.user.id);
+          successful.push({ reportId: id, status: report.status });
+        } catch (err) {
+          failed.push({ reportId: id, error: err.message });
+        }
+      }
+
+      res.json({ successful, failed });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to process bulk approval' });
+    }
+  }
+
+  async bulkReject(req, res) {
+    try {
+      const { reportIds, reason } = req.body;
+      if (!Array.isArray(reportIds) || reportIds.length === 0) {
+        return res.status(400).json({ error: 'reportIds must be a non-empty array' });
+      }
+      
+      if (!reason || reason.trim().length === 0) {
+        return res.status(400).json({ error: 'Rejection reason is required' });
+      }
+
+      async function checkAuth(reportId, userId) {
+        const report = await prisma.expenseReport.findUnique({
+          where: { id: parseInt(reportId) },
+          select: { ownerId: true }
+        });
+        if (!report) throw new Error('Report not found');
+        if (report.ownerId === userId) throw new Error('Forbidden: You cannot perform this action on your own report');
+        
+        const assignment = await prisma.reportApprover.findUnique({
+          where: {
+            reportId_approverId: { reportId: parseInt(reportId), approverId: userId }
+          }
+        });
+        if (!assignment) throw new Error('Forbidden: You are not assigned to review this report');
+      }
+
+      const successful = [];
+      const failed = [];
+
+      for (const id of reportIds) {
+        try {
+          await checkAuth(id, req.user.id);
+          const report = await reportService.rejectReport(id, req.user.id, reason);
+          successful.push({ reportId: id, status: report.status });
+        } catch (err) {
+          failed.push({ reportId: id, error: err.message });
+        }
+      }
+
+      res.json({ successful, failed });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to process bulk rejection' });
+    }
+  }
+
+  async exportCsv(req, res) {
+    try {
+      const options = { ...req.query, isPaginated: false };
+      const reports = await reportService.getReports(req.user.id, req.user.role, options);
+      
+      const escapeCSV = (val) => {
+        if (val === null || val === undefined) return '';
+        const str = String(val);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return '"' + str.replace(/"/g, '""') + '"';
+        }
+        return str;
+      };
+
+      const headers = ['Report ID', 'Title', 'Submitter (Owner ID)', 'Status', 'Total Amount', 'Created Date'];
+      const rows = reports.map(r => [
+        escapeCSV(r.id),
+        escapeCSV(r.title),
+        escapeCSV(r.ownerId),
+        escapeCSV(r.status),
+        escapeCSV(r.total.toFixed(2)),
+        escapeCSV(r.createdAt.toISOString())
+      ].join(','));
+      
+      const csvContent = [headers.join(','), ...rows].join('\n');
+
+      res.type('text/csv');
+      res.attachment('reimbursements.csv');
+      res.send(csvContent);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to export CSV' });
+    }
+  }
+
 }
 
 module.exports = new ReportController();

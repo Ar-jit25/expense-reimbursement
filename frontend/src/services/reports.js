@@ -26,5 +26,29 @@ export const reportsService = {
   async approveReport(id) { return apiClient(`/reports/${id}/approve`, { method: 'POST' }); },
   async rejectReport(id, reason) { return apiClient(`/reports/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }); },
   async assignApprover(id, approverId) { return apiClient(`/reports/${id}/assignments`, { method: 'POST', body: JSON.stringify({ approverId }) }); },
-  async removeApprover(id, approverId) { return apiClient(`/reports/${id}/assignments/${approverId}`, { method: 'DELETE' }); }
+  async removeApprover(id, approverId) { return apiClient(`/reports/${id}/assignments/${approverId}`, { method: 'DELETE' }); },
+
+  async bulkApprove(reportIds) { return apiClient('/reports/bulk/approve', { method: 'POST', body: JSON.stringify({ reportIds }) }); },
+  async bulkReject(reportIds, reason) { return apiClient('/reports/bulk/reject', { method: 'POST', body: JSON.stringify({ reportIds, reason }) }); },
+  async downloadCsv(params = {}) {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        query.append(key, value);
+      }
+    });
+    const qs = query.toString();
+    const endpoint = `/reports/export/csv${qs ? '?' + qs : ''}`;
+    
+    const csvContent = await apiClient(endpoint);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'reimbursements.csv');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
 };

@@ -78,3 +78,9 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Chose:** To normalize the Phase 6 polymorphic pagination response strictly within the eportsService.js client layer.
 - **Rejected:** Forcing the UI components to check Array.isArray(res).
 - **Why:** Separation of Concerns. The React components should only understand one data contract ({ data, total, page, limit }). By transforming the raw unpaginated backend array into this structure inside the service wrapper, the UI remains perfectly clean and resilient to future backend changes.
+
+
+### Phase 8: Reused Express Middleware Logic for Bulk Actions
+- **Context**: The existing /approve and /reject endpoints use Express middleware (`requireNotReportOwner`, `requireAssignedApprover`) to enforce rules based on `req.params.id`.
+- **Decision**: Instead of duplicating business logic or trying to run middleware inside a loop, we extracted the Prisma queries from the middleware into a private controller helper `_checkApprovalAuthorization`. 
+- **Consequences**: Safely allowed bulk operations to process reports independently (e.g. failing on self-approval while succeeding on others) without disrupting the single-report state machine.
