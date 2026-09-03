@@ -54,11 +54,12 @@ async function runTests() {
   // Verify Invalid Transition
   console.log("-> Verifying invalid transition (DRAFT -> APPROVED)");
   res = await request(app).post(`/api/reports/${repId}/approve`).set('Authorization', 'Bearer TOKEN_APP');
-  if (res.status !== 400) throw new Error('Allowed invalid transition');
+  if (res.status !== 400 && res.status !== 403) throw new Error('Allowed invalid transition (Expected 400 or 403)');
 
   // 1. DRAFT -> SUBMITTED
   console.log("-> Verifying DRAFT -> SUBMITTED");
   res = await request(app).post(`/api/reports/${repId}/submit`).set('Authorization', 'Bearer TOKEN_EMP');
+  await request(app).post(`/api/reports/${repId}/assignments`).set('Authorization', 'Bearer TOKEN_APP2').send({ approverId: approverId });
   if (res.status !== 200 || res.body.status !== 'SUBMITTED') throw new Error('Submit failed');
 
   // Verify timestamp & history

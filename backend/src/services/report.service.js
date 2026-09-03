@@ -1,4 +1,5 @@
 ﻿const prisma = require('../config/prisma');
+const { Prisma } = require('@prisma/client');
 
 class ReportService {
   async createReport(ownerId, { title, dateFrom, dateTo }) {
@@ -21,40 +22,128 @@ class ReportService {
     };
   }
 
-  async getReports(userId, userRole, queue = null) {
-    // EMPLOYEE: Can only ever see their own reports.
-    if (userRole === 'EMPLOYEE') {
-      return prisma.expenseReport.findMany({
-        where: { ownerId: userId, isArchived: false },
-        include: { lines: true, history: { orderBy: { createdAt: 'desc' }, take: 1 } },
-        orderBy: { createdAt: 'desc' }
-      }).then(reports => reports.map(r => this._calculateTotal(r)));
+  async getReports(userId, userRole, options = {}) {
+    // Phase 6 Query Parameter Contract
+    let queue = options; // fallback for phase 3/4/5 calls that pass a string
+    if (typeof options === 'object') {
+      queue = options.queue;
+    } else {
+      options = { queue };
     }
     
-    // APPROVER: Can see multiple queues
-    let whereClause = { isArchived: false };
+    const { search, status, ownerId, approverId, sort, order, isPaginated, page, limit } = options;
     
-    if (queue === 'submitted') {
-      whereClause.status = 'SUBMITTED';
-    } else if (queue === 'assigned') {
-      whereClause.status = 'SUBMITTED';
-      whereClause.approvers = { some: { approverId: userId } };
+    const AND = [];
+    AND.push({ isArchived: false });
+
+    // Authorization & Queues
+    if (userRole === 'EMPLOYEE') {
+      AND.push({ ownerId: userId });
     } else {
-      // Default APPROVER view: own reports OR reports submitted by others
-      whereClause = {
-        isArchived: false,
-        OR: [
-          { ownerId: userId },
-          { status: { in: ['SUBMITTED', 'APPROVED', 'PAID'] } }
-        ]
-      };
+      if (queue === 'submitted') {
+        AND.push({ status: 'SUBMITTED' });
+      } else if (queue === 'assigned') {
+        AND.push({ status: 'SUBMITTED' });
+        AND.push({ approvers: { some: { approverId: userId } } });
+      } else {
+        AND.push({
+          OR: [
+            { ownerId: userId },
+            { status: { in: ['SUBMITTED', 'APPROVED', 'PAID'] } }
+          ]
+        });
+      }
+      
+      // Additional authorized filters for approvers
+      if (ownerId) AND.push({ ownerId });
+      if (approverId) AND.push({ approvers: { some: { approverId } } });
     }
 
-    return prisma.expenseReport.findMany({
-      where: whereClause,
+    // Common dynamic filters
+    if (search) AND.push({ title: { contains: search, mode: 'insensitive' } });
+    if (status) AND.push({ status });
+
+    const where = { AND };
+    
+    // Derived Total Sorting Logic (Authorized IDs Pipeline)
+    if (sort === 'total') {
+      // Step A & B: Prisma Authorization, Filtering, and Matching Count
+      const idsResult = await prisma.expenseReport.findMany({ where, select: { id: true } });
+      const idList = idsResult.map(i => i.id);
+      const totalCount = idList.length;
+      
+      let data = [];
+      if (totalCount > 0) {
+        let sortedIds = idList;
+        const joinedIds = Prisma.join(idList);
+        const orderSql = order === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+        
+        // Step C: PostgreSQL Aggregate Query
+        if (isPaginated) {
+           const limitSql = limit;
+           const offsetSql = (page - 1) * limit;
+           const rawResult = await prisma.$queryRaw`
+             SELECT r.id
+             FROM "expense_reports" r
+             LEFT JOIN "expense_lines" l ON l."reportId" = r.id
+             WHERE r.id IN (${joinedIds})
+             GROUP BY r.id
+             ORDER BY SUM(COALESCE(l.amount, 0)) ${orderSql}, r.id ASC
+             LIMIT ${limitSql} OFFSET ${offsetSql}
+           `;
+           sortedIds = rawResult.map(r => r.id);
+        } else {
+           const rawResult = await prisma.$queryRaw`
+             SELECT r.id
+             FROM "expense_reports" r
+             LEFT JOIN "expense_lines" l ON l."reportId" = r.id
+             WHERE r.id IN (${joinedIds})
+             GROUP BY r.id
+             ORDER BY SUM(COALESCE(l.amount, 0)) ${orderSql}, r.id ASC
+           `;
+           sortedIds = rawResult.map(r => r.id);
+        }
+        
+        // Step D: Hydration
+        if (sortedIds.length > 0) {
+          const reports = await prisma.expenseReport.findMany({
+            where: { id: { in: sortedIds } },
+            include: { lines: true, history: { orderBy: { createdAt: 'desc' }, take: 1 } }
+          });
+          
+          const reportMap = new Map(reports.map(r => [r.id, r]));
+          // Explicitly restore the database-determined order
+          data = sortedIds.map(id => reportMap.get(id)).filter(Boolean);
+        }
+      }
+      
+      data = data.map(r => this._calculateTotal(r));
+      return isPaginated ? { data, total: totalCount, page, limit } : data;
+    }
+    
+    // Normal Prisma Sorting
+    const totalCount = await prisma.expenseReport.count({ where });
+    const orderBy = {};
+    if (sort) {
+      orderBy[sort] = order || 'desc';
+    } else {
+      orderBy.createdAt = 'desc';
+    }
+
+    const queryParams = {
+      where,
       include: { lines: true, history: { orderBy: { createdAt: 'desc' }, take: 1 } },
-      orderBy: { createdAt: 'desc' }
-    }).then(reports => reports.map(r => this._calculateTotal(r)));
+      orderBy
+    };
+    
+    if (isPaginated) {
+      queryParams.skip = (page - 1) * limit;
+      queryParams.take = limit;
+    }
+
+    const reports = await prisma.expenseReport.findMany(queryParams);
+    const data = reports.map(r => this._calculateTotal(r));
+    return isPaginated ? { data, total: totalCount, page, limit } : data;
   }
 
   async getReportById(id, ownerId) {

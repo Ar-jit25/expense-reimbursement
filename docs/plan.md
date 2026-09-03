@@ -191,3 +191,25 @@ During Phase 4, the authorization condition for `/approve`, `/reject`, and `/pay
 - Actual time spent: 1.5 hours.
 
 ---
+
+## Phase 6: Server-Side Report Discovery
+**Objective**: Implement robust search, filtering, sorting, and pagination for /api/reports without weakening the Phase 1-5 security and queuing boundaries.
+**Planned Behavior**:
+- Strict Authorization > Queue > Filter > Sort > Pagination pipeline.
+- Derived total sorting using an Authorized IDs Pipeline to leverage PostgreSQL aggregation while preserving Prisma's security.
+- Conditional pagination responses to maintain backward compatibility for existing unpaginated clients/tests.
+**Actual Implementation**:
+- Modified eport.controller.js to parse and validate page, limit, sort, order, status, search, ownerId, pproverId.
+- Rewrote eport.service.js:getReports to dynamically construct a safe Prisma where clause utilizing AND arrays to prevent filter bypassing.
+- Implemented the Authorized IDs Pipeline for sort=total by first retrieving matching IDs via Prisma, then injecting them safely into a parameterized $queryRaw to perform SUM, ORDER BY, and LIMIT/OFFSET.
+**Deviations**: None from the approved architecture.
+**Problems Encountered**:
+- Prisma does not support ordering by aggregate sums of relations while natively paginating.
+- Raw SQL table names had to be carefully matched with schema @@map definitions (expense_reports and expense_lines).
+- Adding pagination output ({ data, total, page, limit }) broke earlier test suites (Phases 3, 4, 5) which expected raw arrays.
+**Fixes**:
+- Adopted the Authorized IDs Pipeline (Two-Step query).
+- Fixed SQL table mapping and Enum mappings in verification scripts.
+- Adopted Conditional Response Wrapping to serve raw arrays when pagination parameters are absent.
+- Corrected a testing oversight in erify-phase4.js where the Phase 5 assignment requirement caused a 403 instead of the expected 400 state machine error. We explicitly assigned the approver in the test to properly evaluate the state machine rules.
+**Verification Outcome**: All 34 new Phase 6 verification checks passed successfully, alongside 100% regression pass rates for Phases 4 and 5.

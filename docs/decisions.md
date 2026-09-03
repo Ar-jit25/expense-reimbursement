@@ -58,3 +58,13 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Chose:** Any authenticated user with the APPROVER role may manage eligible-approver assignments for reports currently in the SUBMITTED state. (This includes assigning one or multiple eligible approvers, and removing assignments). Employees who own the reports cannot manage assignments merely through ownership.
 - **Rejected:** Creating an explicit Admin role, or allowing Employees to route their own reports.
 - **Why:** The README and action plan mandated that assignments exist but completely omitted *who* holds the authority to manage them. Introducing a third "Admin" role would drastically expand the scope of the project and violate the constraint to stick to Employee/Approver roles. Allowing employees to pick their own approvers is a security anti-pattern (they could pick a lenient friend). Allowing any Approver to manage assignments allows for a self-organizing "queue triage" system (e.g., a manager claims a report by assigning it to themselves, or assigns it to a subordinate).
+
+## Decision 11: Phase 6 Conditional Pagination Response Contract
+- **Chose:** To return a paginated object { data, total, page, limit } *only* if page or limit parameters are explicitly supplied. Otherwise, return the legacy raw array [].
+- **Rejected:** Unconditionally returning the paginated object for all requests.
+- **Why:** Backward compatibility. Returning the object unconditionally broke all Phase 3, 4, and 5 integration tests (and hypothetically, existing frontend consumers) that explicitly expected an array. The conditional design safely introduces new capabilities without shattering the established API contract.
+
+## Decision 12: Phase 6 Derived Total Sorting (Authorized IDs Pipeline)
+- **Chose:** To resolve sort=total by first querying Prisma for all authorized IDs, then passing those IDs into a $queryRaw PostgreSQL query for aggregation, sorting, and pagination.
+- **Rejected:** Hybrid in-memory sorting (pulling all full records into Node.js), a generic raw SQL query (recreating the authorization logic in SQL), or storing 	otal directly on the database column.
+- **Why:** Prisma does not natively support skip/	ake combined with sorting on an aggregate relation sum. The Authorized IDs Pipeline keeps the complex, critical authorization logic strictly within Prisma, using raw SQL *only* for the math and sorting on an already-vetted list of IDs. Storing a 	otal column was explicitly rejected by project constraints to prevent out-of-sync state.

@@ -18,15 +18,58 @@ class ReportController {
 
   async list(req, res) {
     try {
-      const { queue } = req.query;
+      const { queue, search, status, ownerId, approverId, sort, order, page, limit } = req.query;
       
       // Block EMPLOYEEs from accessing specialized queues
       if (req.user.role === 'EMPLOYEE' && (queue === 'submitted' || queue === 'assigned')) {
         return res.status(403).json({ error: 'Forbidden: Employees cannot access approver queues' });
       }
 
-      const reports = await reportService.getReports(req.user.id, req.user.role, queue);
-      res.json(reports);
+      // Explicit Pagination Validation
+      let isPaginated = false;
+      let parsedPage = 1;
+      let parsedLimit = 10;
+
+      if (page !== undefined || limit !== undefined) {
+        isPaginated = true;
+        if (page !== undefined) {
+          parsedPage = parseInt(page, 10);
+          if (isNaN(parsedPage) || parsedPage <= 0) {
+            return res.status(400).json({ error: 'Invalid page parameter' });
+          }
+        }
+        if (limit !== undefined) {
+          parsedLimit = parseInt(limit, 10);
+          if (isNaN(parsedLimit) || parsedLimit <= 0) {
+            return res.status(400).json({ error: 'Invalid limit parameter' });
+          }
+          if (parsedLimit > 100) parsedLimit = 100;
+        }
+      }
+
+      // Explicit Sort/Order/Status validation
+      const validSorts = ['submittedAt', 'status', 'total', 'createdAt'];
+      if (sort && !validSorts.includes(sort)) {
+        return res.status(400).json({ error: 'Invalid sort parameter' });
+      }
+      
+      const validOrders = ['asc', 'desc'];
+      if (order && !validOrders.includes(order)) {
+        return res.status(400).json({ error: 'Invalid order parameter' });
+      }
+      
+      const validStatuses = ['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'PAID'];
+      if (status && !validStatuses.includes(status)) {
+        return res.status(400).json({ error: 'Invalid status parameter' });
+      }
+
+      const options = {
+        queue, search, status, ownerId, approverId, sort, order,
+        isPaginated, page: parsedPage, limit: parsedLimit
+      };
+
+      const result = await reportService.getReports(req.user.id, req.user.role, options);
+      res.json(result);
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Failed to fetch reports' });

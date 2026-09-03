@@ -46,3 +46,12 @@ Our Express middleware utilizes three distinct layers of authorization before re
 1. **Role-Based Access Control (RBAC)**: `requireRole('APPROVER')`. Are you a manager?
 2. **Attribute-Based Access Control (ABAC)**: `requireNotReportOwner`. Are you trying to review your own work?
 3. **Resource-Specific Access Control**: `requireAssignedApprover`. Were you specifically assigned to this exact report?
+
+### Representative Request Path (Phase 6: Paginated Discovery)
+1. **Client** sends GET /api/reports?search=flight&sort=total&limit=10.
+2. **Controller** extracts, validates parameters (e.g., limit cap at 100, sort enum validation), and blocks specialized queue access if user is an Employee.
+3. **Service (Authorization/Filter)** dynamically builds a safe Prisma where clause. It guarantees Employee ownership or Approver queue boundaries, then layers the search filter on top.
+4. **Service (Authorized IDs Pipeline)**: Because sort=total is requested, it queries Prisma for *only* the matching ids.
+5. **Service (PostgreSQL Aggregation)**: It passes the safe array of IDs into a parameterized $queryRaw query, which joins expense_lines, calculates the SUM(amount), applies ORDER BY, and utilizes database-level LIMIT 10 OFFSET 0.
+6. **Service (Hydration)**: Prisma takes the 10 final sorted IDs, fetches the full records (with lines and history), and Node.js maps them back into the exact database-determined order.
+7. **Controller** wraps the response in { data, total, page, limit } and returns 200 OK.
