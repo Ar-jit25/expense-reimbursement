@@ -55,3 +55,9 @@ Our Express middleware utilizes three distinct layers of authorization before re
 5. **Service (PostgreSQL Aggregation)**: It passes the safe array of IDs into a parameterized $queryRaw query, which joins expense_lines, calculates the SUM(amount), applies ORDER BY, and utilizes database-level LIMIT 10 OFFSET 0.
 6. **Service (Hydration)**: Prisma takes the 10 final sorted IDs, fetches the full records (with lines and history), and Node.js maps them back into the exact database-determined order.
 7. **Controller** wraps the response in { data, total, page, limit } and returns 200 OK.
+
+### Frontend Architecture (React + Vite)
+- **Routing:** eact-router-dom manages client-side navigation. ProtectedRoute wrapper components restrict /approvals routes to the APPROVER role using Context.
+- **State Management:** AuthContext provides global user identity. Local state (useState) handles individual page states, forms, and loading indicators.
+- **Service Layer:** piClient.js intercepts all outbound fetch requests to inject the Authorization: Bearer <token> header, and standardizes error throwing by parsing the backend's JSON error messages.
+- **Data Fetching:** Standard useEffect hooks trigger etchReports methods from the eports.js service, updating local state variables and triggering re-renders.

@@ -68,3 +68,13 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Chose:** To resolve sort=total by first querying Prisma for all authorized IDs, then passing those IDs into a $queryRaw PostgreSQL query for aggregation, sorting, and pagination.
 - **Rejected:** Hybrid in-memory sorting (pulling all full records into Node.js), a generic raw SQL query (recreating the authorization logic in SQL), or storing 	otal directly on the database column.
 - **Why:** Prisma does not natively support skip/	ake combined with sorting on an aggregate relation sum. The Authorized IDs Pipeline keeps the complex, critical authorization logic strictly within Prisma, using raw SQL *only* for the math and sorting on an already-vetted list of IDs. Storing a 	otal column was explicitly rejected by project constraints to prevent out-of-sync state.
+
+## Decision 13: Mock Authentication Architecture (Phase 7)
+- **Chose:** To use a simple mock Login screen that injects static backend test tokens (TOKEN_EMP, TOKEN_APP1) into localStorage instead of integrating the real Supabase Auth UI.
+- **Rejected:** Setting up real Supabase authentication with email/passwords.
+- **Why:** The project constraints heavily prioritized demonstrating the backend logic and routing mechanisms quickly. Real auth would require database seeding of user records and email verifications, distracting from the core objective: the Expense Reimbursement workflow. By mocking the JWTs identically to the verification scripts, the frontend instantly interfaces with the rigid backend authorization layers perfectly.
+
+## Decision 14: Client-Side Response Normalization (Phase 7)
+- **Chose:** To normalize the Phase 6 polymorphic pagination response strictly within the eportsService.js client layer.
+- **Rejected:** Forcing the UI components to check Array.isArray(res).
+- **Why:** Separation of Concerns. The React components should only understand one data contract ({ data, total, page, limit }). By transforming the raw unpaginated backend array into this structure inside the service wrapper, the UI remains perfectly clean and resilient to future backend changes.
