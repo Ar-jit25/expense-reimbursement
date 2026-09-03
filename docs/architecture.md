@@ -40,3 +40,9 @@ Answer each of these, in your own words, once the system has taken real shape.
    - Inserts into `ReportHistory` recording John's ID, `SUBMITTED -> APPROVED`.
    - Commits transaction.
 7. **Controller** returns `200 OK`.
+
+### The Authorization Layers (Phase 5)
+Our Express middleware utilizes three distinct layers of authorization before reaching the business logic:
+1. **Role-Based Access Control (RBAC)**: `requireRole('APPROVER')`. Are you a manager?
+2. **Attribute-Based Access Control (ABAC)**: `requireNotReportOwner`. Are you trying to review your own work?
+3. **Resource-Specific Access Control**: `requireAssignedApprover`. Were you specifically assigned to this exact report?

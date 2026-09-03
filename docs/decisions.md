@@ -48,3 +48,13 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Chose:** `prisma.$transaction`.
 - **Rejected:** Awaiting sequential `.update()` and `.create()` calls.
 - **Why:** If the server crashes or the network drops after `.update()` completes but before the `ReportHistory.create()` completes, the audit log is permanently corrupted. A database transaction ensures both succeed, or neither succeeds.
+
+## Decision 9: The Authorization Phase Boundary (Phase 4)
+- **Chose:** To permit *any* global Approver (who is not the owner) to approve any submitted report during Phase 4.
+- **Rejected:** Checking the `ReportApprover` table to restrict approval only to explicitly assigned approvers.
+- **Why:** To respect the project's strict phase boundaries. Phase 4 is exclusively about the Lifecycle State Machine and Immutable History. Phase 5 handles "Assigned Approvers." It is crucial in iterative development not to prematurely assume or implement business rules (like assignment routing logic) before their designated phase, as requirements for those features often introduce complexities best handled in isolation. Phase 4's `requireNotReportOwner` middleware strictly implements the "never their own" requirement without crossing into Phase 5 territory.
+
+## Decision 10: Phase 5 Assignment Management Authority
+- **Chose:** Any authenticated user with the APPROVER role may manage eligible-approver assignments for reports currently in the SUBMITTED state. (This includes assigning one or multiple eligible approvers, and removing assignments). Employees who own the reports cannot manage assignments merely through ownership.
+- **Rejected:** Creating an explicit Admin role, or allowing Employees to route their own reports.
+- **Why:** The README and action plan mandated that assignments exist but completely omitted *who* holds the authority to manage them. Introducing a third "Admin" role would drastically expand the scope of the project and violate the constraint to stick to Employee/Approver roles. Allowing employees to pick their own approvers is a security anti-pattern (they could pick a lenient friend). Allowing any Approver to manage assignments allows for a self-organizing "queue triage" system (e.g., a manager claims a report by assigning it to themselves, or assigns it to a subordinate).

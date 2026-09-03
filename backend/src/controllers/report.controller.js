@@ -18,8 +18,14 @@ class ReportController {
 
   async list(req, res) {
     try {
-      const includeArchived = req.query.archived === 'true';
-      const reports = await reportService.getMyReports(req.user.id, includeArchived);
+      const { queue } = req.query;
+      
+      // Block EMPLOYEEs from accessing specialized queues
+      if (req.user.role === 'EMPLOYEE' && (queue === 'submitted' || queue === 'assigned')) {
+        return res.status(403).json({ error: 'Forbidden: Employees cannot access approver queues' });
+      }
+
+      const reports = await reportService.getReports(req.user.id, req.user.role, queue);
       res.json(reports);
     } catch (err) {
       console.error(err);
@@ -119,8 +125,34 @@ class ReportController {
       res.status(500).json({ error: 'Failed to reset report to draft' });
     }
   }
+// ==========================================
+  // PHASE 5: APPROVER ASSIGNMENTS
+  // ==========================================
+
+  async assignApprover(req, res) {
+    try {
+      await reportService.assignApprover(req.params.id, req.body.approverId);
+      res.json({ message: 'Assignment successful' });
+    } catch (err) {
+      console.error(err);
+      if (err.message.includes('Target approver ID is required')) return res.status(400).json({ error: err.message });
+      if (err.message.includes('does not exist')) return res.status(404).json({ error: err.message });
+      if (err.message.includes('not eligible')) return res.status(400).json({ error: err.message });
+      res.status(500).json({ error: 'Failed to assign approver' });
+    }
+  }
+
+  async removeAssignment(req, res) {
+    try {
+      await reportService.removeApprover(req.params.id, req.params.approverId);
+      res.status(204).send(); // Idempotent success, no content
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to remove assignment' });
+    }
+  }
+
 }
 
 module.exports = new ReportController();
-
 

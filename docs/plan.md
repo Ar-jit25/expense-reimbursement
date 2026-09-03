@@ -166,3 +166,28 @@ documented.
 
 ---
 
+
+**Phase 4 Boundary Inspection Note**:
+During Phase 4, the authorization condition for `/approve`, `/reject`, and `/pay` relies exclusively on global role-based authorization (`requireRole('APPROVER')`) combined with self-approval prevention (`requireNotReportOwner`). We intentionally stopped exactly at the phase boundary. We did *not* implement report-specific approver assignment constraints (e.g., verifying if the approver is explicitly assigned to this specific report via the `ReportApprover` join table). That constraint belongs strictly to Phase 5.
+
+## Phase 5 — Approver assignment + queues
+
+### Intended work (recorded before implementation began)
+*Refer to the implementation_plan.md artifact for full details on Phase 5 API, middleware, and logic updates.*
+
+### Actual results (recorded after Phase 5 completed)
+
+**What was built**:
+- **Assignment Routes**: `POST /api/reports/:id/assignments` and `DELETE`. 
+- **Idempotency**: Used Prisma `upsert` and caught `P2025` deletions to make assignments perfectly idempotent.
+- **Queue Semantics**: Updated `GET /api/reports` to process `queue=submitted` (all) and `queue=assigned` (assigned only). Employees accessing these routes are strictly blocked.
+- **Authorization Stack**: Added `requireAssignedApprover` to `/approve` and `/reject` making them assignment-gated, while preserving the overarching `requireNotReportOwner` block.
+
+**What deviated from intent**:
+- **Bug Fix**: My initial update to the Controller and Service missed applying properly due to string matching errors in the script, which caused the Employee Queue restriction test to fail initially because the new `list` method wasn't executing. I corrected the replacement script, ran the tests again, and all 18 integrations passed perfectly.
+
+**What was estimated vs actual**:
+- Estimated time: 2 hours.
+- Actual time spent: 1.5 hours.
+
+---

@@ -13,24 +13,48 @@ class ReportService {
     });
   }
 
-  async getMyReports(ownerId, includeArchived = false) {
-    const where = { ownerId };
-    if (!includeArchived) {
-      where.isArchived = false;
-    }
-    
-    // Fetch reports with their lines to calculate totals
-    const reports = await prisma.expenseReport.findMany({
-      where,
-      include: { lines: true },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    // Calculate total on the fly
-    return reports.map(report => ({
+  _calculateTotal(report) {
+    if (!report.lines) return report;
+    return {
       ...report,
       total: report.lines.reduce((sum, line) => sum + Number(line.amount), 0)
-    }));
+    };
+  }
+
+  async getReports(userId, userRole, queue = null) {
+    // EMPLOYEE: Can only ever see their own reports.
+    if (userRole === 'EMPLOYEE') {
+      return prisma.expenseReport.findMany({
+        where: { ownerId: userId, isArchived: false },
+        include: { lines: true, history: { orderBy: { createdAt: 'desc' }, take: 1 } },
+        orderBy: { createdAt: 'desc' }
+      }).then(reports => reports.map(r => this._calculateTotal(r)));
+    }
+    
+    // APPROVER: Can see multiple queues
+    let whereClause = { isArchived: false };
+    
+    if (queue === 'submitted') {
+      whereClause.status = 'SUBMITTED';
+    } else if (queue === 'assigned') {
+      whereClause.status = 'SUBMITTED';
+      whereClause.approvers = { some: { approverId: userId } };
+    } else {
+      // Default APPROVER view: own reports OR reports submitted by others
+      whereClause = {
+        isArchived: false,
+        OR: [
+          { ownerId: userId },
+          { status: { in: ['SUBMITTED', 'APPROVED', 'PAID'] } }
+        ]
+      };
+    }
+
+    return prisma.expenseReport.findMany({
+      where: whereClause,
+      include: { lines: true, history: { orderBy: { createdAt: 'desc' }, take: 1 } },
+      orderBy: { createdAt: 'desc' }
+    }).then(reports => reports.map(r => this._calculateTotal(r)));
   }
 
   async getReportById(id, ownerId) {
@@ -130,6 +154,56 @@ class ReportService {
   async resetToDraft(id, ownerId) {
     return this._transitionState(id, ownerId, 'REJECTED', 'DRAFT', null);
   }
+// ==========================================
+  // PHASE 5: APPROVER ASSIGNMENTS
+  // ==========================================
+
+  async assignApprover(reportId, targetApproverId) {
+    if (!targetApproverId) throw new Error('Target approver ID is required');
+
+    // 1. Verify target user exists
+    const targetUser = await prisma.user.findUnique({ where: { id: targetApproverId } });
+    if (!targetUser) throw new Error('Target user does not exist');
+
+    // 2. Verify target user has APPROVER role
+    if (targetUser.role !== 'APPROVER') throw new Error('Target user is not eligible to be an approver');
+
+    // 3. Create or preserve assignment (Idempotent success)
+    await prisma.reportApprover.upsert({
+      where: {
+        reportId_approverId: {
+          reportId: parseInt(reportId),
+          approverId: targetApproverId
+        }
+      },
+      update: {}, // Do nothing if it exists
+      create: {
+        reportId: parseInt(reportId),
+        approverId: targetApproverId
+      }
+    });
+
+    return { success: true };
+  }
+
+  async removeApprover(reportId, targetApproverId) {
+    try {
+      await prisma.reportApprover.delete({
+        where: {
+          reportId_approverId: {
+            reportId: parseInt(reportId),
+            approverId: targetApproverId
+          }
+        }
+      });
+    } catch (err) {
+      // P2025: Record to delete does not exist (Idempotent success)
+      if (err.code !== 'P2025') {
+        throw err;
+      }
+    }
+  }
+
 }
 
 module.exports = new ReportService();
