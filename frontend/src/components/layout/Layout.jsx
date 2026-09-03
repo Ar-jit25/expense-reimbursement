@@ -1,12 +1,13 @@
-﻿import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+﻿import { Outlet, NavLink, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { FileText, PlusCircle, CheckSquare, LogOut, LayoutDashboard } from 'lucide-react';
 
 export default function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const navigate = useNavigate();
 
-  if (!user) return null;
+  if (loading) return <div className="p-6 text-center text-muted">Loading application...</div>;
+  if (!user) return <Navigate to="/login" replace />;
 
   const handleLogout = () => {
     logout();
@@ -58,3 +59,4 @@ export default function Layout() {
     </div>
   );
 }
+
