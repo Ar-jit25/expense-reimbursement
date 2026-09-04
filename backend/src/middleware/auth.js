@@ -19,7 +19,7 @@ const requireAuth = async (req, res, next) => {
   console.log("LOGIN ATTEMPT - Supabase Email:", supabaseUser.email);
 
   try {
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: supabaseUser.id }
     });
 
