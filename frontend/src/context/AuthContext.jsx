@@ -4,39 +4,48 @@ import { supabase } from '../config/supabase';
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
-/**
- * Fetches the authorized application profile from the backend /api/me endpoint.
- * The role comes EXCLUSIVELY from the application database — never from the client.
- * Returns null if the user is not an authorized application member.
- */
 const fetchAppProfile = async (accessToken) => {
   const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
   try {
     const response = await fetch(`${apiBase}/me`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
-    if (!response.ok) return null; // 401, 403, etc.
-    return await response.json(); // { id, email, name, role }
-  } catch {
-    return null;
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { 
+        error: true, 
+        status: response.status, 
+        message: errorData.error || 'Server rejected authorization.' 
+      };
+    }
+    
+    const data = await response.json();
+    return { error: false, data };
+  } catch (err) {
+    console.error("fetchAppProfile network error:", err);
+    return { 
+      error: true, 
+      status: 0, 
+      message: 'Network or CORS error. Please check browser console and VITE_API_URL / FRONTEND_URL env vars.' 
+    };
   }
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);   // { token, id, email, name, role }
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
 
-  // On mount: restore existing Supabase session (handles page refresh)
   useEffect(() => {
     let mounted = true;
 
     const initSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session && mounted) {
-        const profile = await fetchAppProfile(session.access_token);
-        if (profile && mounted) {
-          setUser({ token: session.access_token, ...profile });
+        const result = await fetchAppProfile(session.access_token);
+        if (!result.error && mounted) {
+          setUser({ token: session.access_token, ...result.data });
           localStorage.setItem('authToken', session.access_token);
         }
       }
@@ -45,7 +54,6 @@ export const AuthProvider = ({ children }) => {
 
     initSession();
 
-    // Listen for auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT' || !session) {
         setUser(null);
@@ -53,7 +61,6 @@ export const AuthProvider = ({ children }) => {
         return;
       }
       if (event === 'TOKEN_REFRESHED' && session && user) {
-        // Update stored token on refresh
         localStorage.setItem('authToken', session.access_token);
         setUser(prev => prev ? { ...prev, token: session.access_token } : null);
       }
@@ -65,23 +72,24 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  /**
-   * Called by Login page after successful supabase.auth.signInWithPassword().
-   * Fetches the application profile from backend to verify authorization and get role.
-   * Returns { success, error } — Login page handles the error display.
-   */
   const login = async (accessToken) => {
     setAuthError(null);
-    const profile = await fetchAppProfile(accessToken);
-    if (!profile) {
-      // Authenticated with Supabase but not an authorized application user.
+    const result = await fetchAppProfile(accessToken);
+    
+    if (result.error) {
       await supabase.auth.signOut();
-      const msg = 'Access denied: your account is not authorized to access this application.';
+      
+      let msg = result.message;
+      if (result.status === 403) {
+        msg = 'Access denied: your account is not authorized to access this application.';
+      }
+      
       setAuthError(msg);
       return { success: false, error: msg };
     }
+    
     localStorage.setItem('authToken', accessToken);
-    setUser({ token: accessToken, ...profile });
+    setUser({ token: accessToken, ...result.data });
     return { success: true };
   };
 
