@@ -1,4 +1,4 @@
-﻿const supabase = require('../config/supabase');
+const supabase = require('../config/supabase');
 const prisma = require('../config/prisma');
 
 const requireAuth = async (req, res, next) => {
