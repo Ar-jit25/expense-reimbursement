@@ -6,29 +6,8 @@ const { requireAuth } = require('./middleware/auth');
 
 const app = express();
 
-// CORS configuration (Robust for Vercel and local dev)
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (e.g. curl, Postman)
-    if (!origin) return callback(null, true);
-    
-    // Always allow local development
-    if (origin.startsWith('http://localhost:')) return callback(null, true);
-    
-    // Always allow Vercel domains for this project
-    if (origin.endsWith('.vercel.app')) return callback(null, true);
-    
-    // Strict fallback to FRONTEND_URL if it's a custom domain
-    if (process.env.FRONTEND_URL) {
-      const allowed = process.env.FRONTEND_URL.replace(/\/$/, ''); // strip trailing slash
-      if (origin === allowed) return callback(null, true);
-    }
-    
-    console.warn(`CORS blocked request from origin: ${origin}`);
-    callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true
-}));
+// Allow all origins to prevent deployment friction for the assignment
+app.use(cors());
 
 app.use(express.json());
 
@@ -56,4 +35,5 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
 });
+
 
