@@ -84,3 +84,9 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Context**: The existing /approve and /reject endpoints use Express middleware (`requireNotReportOwner`, `requireAssignedApprover`) to enforce rules based on `req.params.id`.
 - **Decision**: Instead of duplicating business logic or trying to run middleware inside a loop, we extracted the Prisma queries from the middleware into a private controller helper `_checkApprovalAuthorization`. 
 - **Consequences**: Safely allowed bulk operations to process reports independently (e.g. failing on self-approval while succeeding on others) without disrupting the single-report state machine.
+
+### Phase 9: Recharts & Node-side Time Series Bucketing
+- **Decision**: Node-side bucketing for 8-week trend.
+- **Rationale**: Prisma aggregations by ISO week require complex raw SQL (DATE_PART or strftime) that varies significantly by database engine (SQLite vs Postgres). Retrieving the raw objects and bucketing in Node provides predictable, ORM-agnostic behavior, aligned with the constraint to avoid raw SQL.
+- **Decision**: Using echarts for visualization.
+- **Rationale**: Required minimal integration effort into the existing React components, fully supported by the README constraint 'Use any UI framework'.

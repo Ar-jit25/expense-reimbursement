@@ -202,7 +202,7 @@ During Phase 4, the authorization condition for `/approve`, `/reject`, and `/pay
 - Modified eport.controller.js to parse and validate page, limit, sort, order, status, search, ownerId, pproverId.
 - Rewrote eport.service.js:getReports to dynamically construct a safe Prisma where clause utilizing AND arrays to prevent filter bypassing.
 - Implemented the Authorized IDs Pipeline for sort=total by first retrieving matching IDs via Prisma, then injecting them safely into a parameterized $queryRaw to perform SUM, ORDER BY, and LIMIT/OFFSET.
-**Deviations**: None from the approved architecture.
+**Deviations**: Frontend integration was moved forward and implemented as actual Phase 7 because a usable frontend was needed to validate subsequent user-facing features. Consequently, Bulk Actions and CSV Export were implemented as actual Phase 8 instead of their originally planned Phase 7 position.from the approved architecture.
 **Problems Encountered**:
 - Prisma does not support ordering by aggregate sums of relations while natively paginating.
 - Raw SQL table names had to be carefully matched with schema @@map definitions (expense_reports and expense_lines).
@@ -229,7 +229,7 @@ During Phase 4, the authorization condition for `/approve`, `/reject`, and `/pay
 - Built Dashboard with complete search, filtering, and sorting matching Phase 6 rules.
 - Built CreateReport supporting dynamic expense line creation and deletion.
 - Built Approvals queue with tabs for Global Submitted and Assigned to Me.
-**Deviations**: None.
+**Deviations**: Frontend integration was moved forward and implemented as actual Phase 7 because a usable frontend was needed to validate subsequent user-facing features. Consequently, Bulk Actions and CSV Export were implemented as actual Phase 8 instead of their originally planned Phase 7 position.
 **Verification Outcome**: Manual build and routing confirmed. All backend regression verification scripts (Phase 4, 5, 6) continue to pass perfectly since backend logic was completely untouched.
 
 
@@ -239,3 +239,9 @@ During Phase 4, the authorization condition for `/approve`, `/reject`, and `/pay
 Implemented bulk approve and bulk reject with independent report processing. Added CSV export reusing the existing reportService filtering and authorization pipeline to ensure consistent data visibility. Verified via new phase 8 tests.
 
 Commit: feat: add bulk actions and CSV export
+
+
+### Phase 9: Dashboard Analytics
+- ✅ Implemented backend AnalyticsService correctly scoped to single source of truth authorization.
+- ✅ Returned KPI aggregates, category/status groupings, and 8-week trailing trends.
+- ✅ Integrated Recharts in React frontend to dynamically visualize backend metrics.

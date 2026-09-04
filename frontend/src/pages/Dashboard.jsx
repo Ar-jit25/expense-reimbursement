@@ -4,6 +4,7 @@ import { reportsService } from '../services/reports';
 import { useAuth } from '../context/AuthContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { Badge } from '../components/common/Badge';
+import { AnalyticsOverview } from '../components/dashboard/AnalyticsOverview';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -44,6 +45,8 @@ export default function Dashboard() {
 
   return (
     <div>
+      <AnalyticsOverview />
+
       <div className="flex justify-between items-center mb-6">
         <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
           {user.role === 'EMPLOYEE' ? 'My Reports' : 'All Reports Dashboard'}
@@ -134,4 +137,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
 

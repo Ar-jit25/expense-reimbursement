@@ -22,21 +22,11 @@ class ReportService {
     };
   }
 
-  async getReports(userId, userRole, options = {}) {
-    // Phase 6 Query Parameter Contract
-    let queue = options; // fallback for phase 3/4/5 calls that pass a string
-    if (typeof options === 'object') {
-      queue = options.queue;
-    } else {
-      options = { queue };
-    }
-    
-    const { search, status, ownerId, approverId, sort, order, isPaginated, page, limit } = options;
-    
+    // Phase 9: Extracted to a single source of truth for authorization visibility
+  getAuthorizationFilter(userId, userRole, queue) {
     const AND = [];
     AND.push({ isArchived: false });
 
-    // Authorization & Queues
     if (userRole === 'EMPLOYEE') {
       AND.push({ ownerId: userId });
     } else {
@@ -53,8 +43,26 @@ class ReportService {
           ]
         });
       }
-      
-      // Additional authorized filters for approvers
+    }
+    return AND;
+  }
+
+  async getReports(userId, userRole, options = {}) {
+    // Phase 6 Query Parameter Contract
+    let queue = options; // fallback for phase 3/4/5 calls that pass a string
+    if (typeof options === 'object') {
+      queue = options.queue;
+    } else {
+      options = { queue };
+    }
+    
+    const { search, status, ownerId, approverId, sort, order, isPaginated, page, limit } = options;
+    
+    // Call the single source of truth for authorization visibility
+    const AND = this.getAuthorizationFilter(userId, userRole, queue);
+
+    // Additional explicit query filters for approvers
+    if (userRole !== 'EMPLOYEE') {
       if (ownerId) AND.push({ ownerId });
       if (approverId) AND.push({ approvers: { some: { approverId } } });
     }
@@ -296,4 +304,5 @@ class ReportService {
 }
 
 module.exports = new ReportService();
+
 
