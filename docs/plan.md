@@ -246,3 +246,40 @@ Commit: feat: add bulk actions and CSV export
 - ✅ Returned KPI aggregates, category/status groupings, and 8-week trailing trends.
 - ✅ Integrated Recharts in React frontend to dynamically visualize backend metrics.
 
+
+## Phase 11 — Final Polish & E2E Audit (Sept 4, 2026)
+
+### Session Goals
+- Audit README requirements against actual implementation.
+- Fix frontend validation gaps.
+- Polish Login UI.
+- Correct category enum mismatch.
+- Run full authorization and data-privacy E2E verification.
+
+### Work Done
+- **Login.jsx**: Replaced button-only login with a proper email/password form. App title prominently displayed. Card is centered. Mock auth still active — Phase 12 will swap in Supabase signInWithPassword().
+- **Dashboard.jsx**: AnalyticsOverview now hidden for EMPLOYEE role per README intent. Employees see only their own reports list.
+- **CreateReport.jsx**: Added dateFrom <= dateTo client-side validation; fixed category options to match Prisma ExpenseCategory enum (SUPPLIES, SOFTWARE, EQUIPMENT instead of OFFICE_SUPPLIES).
+- **ReportDetails.jsx**: Added isProcessing guard state on all action buttons. Disabled "Confirm Reject" when reason is empty client-side.
+- **verify-phase11-e2e.js**: Added automated backend data-privacy verification confirming: Employee data isolation (12 own reports, 0 other-user reports), Approver cross-system visibility, Employee blocked from /api/alerts, unauthenticated blocked, backend rejection reason enforcement, analytics scoping per role.
+
+### Build Verification
+- 
+pm run build passed with 0 errors (one chunk-size warning, non-blocking).
+
+### Automated Test Results
+- All Phase 4–10 regression suites: ✅ PASSED
+- Phase 11 E2E Authorization suite: ✅ 8/8 PASSED
+
+### Auth Architecture Audit
+- **Current (local)**: MOCK_AUTH=true intercepts tokens TOKEN_EMP, TOKEN_APP1, TOKEN_APP2 and injects deterministic UUID profiles. No real Supabase JWT verification.
+- **Production target (Phase 12)**: Login.jsx will call supabase.auth.signInWithPassword(), receive a real JWT, and pass it as Authorization: Bearer <jwt>. Backend verifies against SUPABASE_URL + SUPABASE_JWT_SECRET.
+- **Production transition**: Mock auth logic is fully isolated in src/config/mock-identities.js and conditionally activated only when MOCK_AUTH=true.
+
+### Remaining for Phase 12
+- Deploy backend to Render.
+- Deploy frontend to Vercel.
+- Swap Login.jsx to real Supabase auth.
+- Set all production env vars.
+- Run seed script against production database.
+- Update SUBMISSION.md.

@@ -39,6 +39,7 @@ export default function CreateReport() {
       
       if (!dateFrom) return setError('Date From is required');
     if (!dateTo) return setError('Date To is required');
+      if (new Date(dateFrom) > new Date(dateTo)) return setError('Date From cannot be after Date To');
     const report = await reportsService.createReport({ title, dateFrom, dateTo });
       
       for (const line of lines) {
@@ -92,7 +93,9 @@ export default function CreateReport() {
                 <option value="TRAVEL">Travel</option>
                 <option value="MEALS">Meals</option>
                 <option value="ACCOMMODATION">Accommodation</option>
-                <option value="OFFICE_SUPPLIES">Office Supplies</option>
+                <option value="SUPPLIES">Supplies</option>
+                <option value="SOFTWARE">Software</option>
+                <option value="EQUIPMENT">Equipment</option>
                 <option value="OTHER">Other</option>
               </select>
               <input className="input" required placeholder="Description" value={line.description} onChange={e => updateLine(idx, 'description', e.target.value)} />
@@ -120,5 +123,6 @@ export default function CreateReport() {
     </div>
   );
 }
+
 
 

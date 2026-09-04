@@ -45,7 +45,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      <AnalyticsOverview />
+      {user.role === 'APPROVER' && <AnalyticsOverview />}
 
       <div className="flex justify-between items-center mb-6">
         <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
@@ -137,5 +137,6 @@ export default function Dashboard() {
     </div>
   );
 }
+
 
 

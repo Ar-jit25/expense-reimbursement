@@ -101,3 +101,31 @@ one relation filter allows querying this cleanly without raw SQL.
 2. **Seed Data Idempotency**
    - *Decision:* The Prisma seed script first deletes all existing data in reverse dependency order before inserting exact deterministic test data.
    - *Rationale:* Ensures reliable E2E tests, analytics, and stale alert visibility states can be repeatedly tested locally.
+
+## Phase 11 — Analytics Visibility Decision (Sept 4, 2026)
+
+**Decision**: The AnalyticsOverview component is now rendered ONLY for Approver-role users on the Dashboard.
+
+**Rationale**: README Goal #8 states the dashboard shows "reports awaiting approval, total reimbursements due, reports approved this week…" — these are cross-system metrics that only an Approver/Finance role can meaningfully interpret. The README does not specify an Analytics overview for Employees. Employee primary experience is creating, tracking, and submitting their own reports.
+
+**Privacy Note**: The backend has always scoped analytics to the requesting user's role. Now the frontend accurately reflects this by hiding the analytics section from Employees. Note: the Analytics endpoint (Phase 9) does respond to Employees but scopes the data to their own reports — this is a design decision, not a bug.
+
+**Files Changed**:
+- rontend/src/pages/Dashboard.jsx: Conditioned <AnalyticsOverview /> on user.role === 'APPROVER'
+
+---
+
+## Phase 11 — Category Enum Fix (Sept 4, 2026)
+
+**Decision**: Fixed OFFICE_SUPPLIES → SUPPLIES in the Create Report form category dropdown.
+
+**Rationale**: Prisma schema defines SUPPLIES, SOFTWARE, EQUIPMENT, not OFFICE_SUPPLIES. The old dropdown would send an invalid value to the backend, causing a 400 error on any report creation using that category. Added missing SOFTWARE and EQUIPMENT options.
+
+---
+
+## Phase 11 — Form Validation (Sept 4, 2026)
+
+**Decisions**:
+1. CreateReport.jsx: Added dateFrom <= dateTo validation before submission.
+2. ReportDetails.jsx: Added isProcessing state to disable all action buttons while an async action is in flight, preventing duplicate submissions. Enforced ejectReason.trim() check before enabling "Confirm Reject".
+3. Login.jsx: Replaced simple role-selector buttons with a professional email/password form. Mock credentials are still used (Phase 12 will integrate real Supabase auth).

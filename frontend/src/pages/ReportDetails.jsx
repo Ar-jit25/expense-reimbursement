@@ -17,6 +17,7 @@ export default function ReportDetails() {
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [actionError, setActionError] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const fetchReport = async () => {
     try {
@@ -118,7 +119,7 @@ export default function ReportDetails() {
         <button className="btn btn-outline" onClick={() => navigate(-1)}>Back</button>
 
         {isOwner && report.status === 'DRAFT' && (
-          <button className="btn btn-primary" onClick={() => handleAction(reportsService.submitReport)}>
+          <button className="btn btn-primary" disabled={isProcessing} onClick={() => handleAction(reportsService.submitReport)}>
             Submit Report
           </button>
         )}
@@ -126,11 +127,11 @@ export default function ReportDetails() {
         {isApprover && report.status === 'SUBMITTED' && (
           <>
             {!isAssigned ? (
-              <button className="btn btn-primary" onClick={() => handleAction(reportsService.assignApprover, user.token)}>
+              <button className="btn btn-primary" disabled={isProcessing} onClick={() => handleAction(reportsService.assignApprover, user.token)}>
                 Assign to Me
               </button>
             ) : (
-              <button className="btn btn-outline" onClick={() => handleAction(reportsService.removeApprover, user.token)}>
+              <button className="btn btn-outline" disabled={isProcessing} onClick={() => handleAction(reportsService.removeApprover, user.token)}>
                 Remove Assignment
               </button>
             )}
@@ -139,10 +140,10 @@ export default function ReportDetails() {
 
         {isApprover && isAssigned && report.status === 'SUBMITTED' && !showRejectInput && (
           <>
-            <button className="btn btn-success" onClick={() => handleAction(reportsService.approveReport)}>
+            <button className="btn btn-success" disabled={isProcessing} onClick={() => handleAction(reportsService.approveReport)}>
               Approve
             </button>
-            <button className="btn btn-danger" onClick={() => setShowRejectInput(true)}>
+            <button className="btn btn-danger" disabled={isProcessing} onClick={() => setShowRejectInput(true)}>
               Reject...
             </button>
           </>
@@ -154,7 +155,7 @@ export default function ReportDetails() {
               className="input" placeholder="Rejection reason..." 
               value={rejectReason} onChange={e => setRejectReason(e.target.value)} 
             />
-            <button className="btn btn-danger" onClick={() => handleAction(reportsService.rejectReport, rejectReason)}>Confirm Reject</button>
+            <button className="btn btn-danger" disabled={isProcessing || !rejectReason.trim()} onClick={() => handleAction(reportsService.rejectReport, rejectReason)}>Confirm Reject</button>
             <button className="btn btn-outline" onClick={() => setShowRejectInput(false)}>Cancel</button>
           </div>
         )}
@@ -162,4 +163,5 @@ export default function ReportDetails() {
     </div>
   );
 }
+
 
