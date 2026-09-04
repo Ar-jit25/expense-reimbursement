@@ -245,3 +245,4 @@ Commit: feat: add bulk actions and CSV export
 - ✅ Implemented backend AnalyticsService correctly scoped to single source of truth authorization.
 - ✅ Returned KPI aggregates, category/status groupings, and 8-week trailing trends.
 - ✅ Integrated Recharts in React frontend to dynamically visualize backend metrics.
+

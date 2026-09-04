@@ -71,3 +71,13 @@ Our Express middleware utilizes three distinct layers of authorization before re
 - Added GET /api/analytics endpoint returning DTO populated by AnalyticsService.
 - Enforced robust visibility bounded exactly by eport.service.js query generators.
 - Replaced mock KPI cards with AnalyticsOverview React component populated dynamically using echarts.
+
+## Phase 10: Stale Alerts and Seed Data
+
+### Stale Alerts Design
+- **Eligibility:** A report is stale if it is SUBMITTED, older than a configurable threshold (STALE_THRESHOLD_DAYS, default 5), and is assigned to the current approver.
+- **Dismissal & Redisplay:** Alerts are dismissed per approver. A StaleAlert record is upserted with the current timestamp on dismissal. If the report remains unresolved past the REDISPLAY_THRESHOLD_DAYS (default 3), Prisma filters ignore the StaleAlert record, bringing it back to the approver's attention.
+- **Trade-offs:** We recalculate report totals in Node rather than SQL views to maintain strict adherence to our Node-driven architecture.
+
+### Seed Data
+- Uses Prisma to deterministically populate realistic data reflecting multiple edge cases (DRAFT, SUBMITTED, APPROVED, REJECTED, PAID), history entries, categories for analytics, and specific age rules to trigger stale alerts immediately upon initialization.

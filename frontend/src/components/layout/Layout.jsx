@@ -1,6 +1,7 @@
 ﻿import { Outlet, NavLink, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { FileText, PlusCircle, CheckSquare, LogOut, LayoutDashboard } from 'lucide-react';
+import { AlertsBadge } from '../navigation/AlertsBadge';
 
 export default function Layout() {
   const { user, logout, loading } = useAuth();
@@ -37,6 +38,7 @@ export default function Layout() {
               <NavLink to="/approvals" className={({isActive}) => isActive ? "sidebar-link active" : "sidebar-link"}>
                 <CheckSquare size={18} /> Approvals Queues
               </NavLink>
+              <AlertsBadge />
               <NavLink to="/reports/new" className={({isActive}) => isActive ? "sidebar-link active" : "sidebar-link"}>
                 <PlusCircle size={18} /> Create Report
               </NavLink>
@@ -59,4 +61,5 @@ export default function Layout() {
     </div>
   );
 }
+
 

@@ -5,6 +5,7 @@ import Layout from './components/layout/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Approvals from './pages/Approvals';
+import Alerts from './pages/Alerts';
 import CreateReport from './pages/CreateReport';
 import ReportDetails from './pages/ReportDetails';
 
@@ -30,6 +31,11 @@ function AppRoutes() {
         <Route path="/reports/:id" element={<ProtectedRoute><ReportDetails /></ProtectedRoute>} />
         
         {/* Approver only */}
+        <Route path="/alerts" element={
+          <ProtectedRoute allowedRoles={['APPROVER']}>
+            <Alerts />
+          </ProtectedRoute>
+        } />
         <Route path="/approvals" element={
           <ProtectedRoute allowedRoles={['APPROVER']}>
             <Approvals />
@@ -53,5 +59,6 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+
 
 

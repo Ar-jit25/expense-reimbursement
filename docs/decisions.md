@@ -90,3 +90,14 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Rationale**: Prisma aggregations by ISO week require complex raw SQL (DATE_PART or strftime) that varies significantly by database engine (SQLite vs Postgres). Retrieving the raw objects and bucketing in Node provides predictable, ORM-agnostic behavior, aligned with the constraint to avoid raw SQL.
 - **Decision**: Using echarts for visualization.
 - **Rationale**: Required minimal integration effort into the existing React components, fully supported by the README constraint 'Use any UI framework'.
+
+## Phase 10: Stale Alerts and Seed Data
+
+1. **Per-Approver Dismissal with Redisplay**
+   - *Decision:* Used a StaleAlert model with a unique constraint on [reportId, approverId] and an upsert logic on dismissal to set dismissedAt. Prisma queries exclude reports where the StaleAlert was dismissed within the redisplay threshold.
+   - *Rationale:* Ensures one approver's dismissal does not hide the alert for another. The Prisma 
+one relation filter allows querying this cleanly without raw SQL.
+
+2. **Seed Data Idempotency**
+   - *Decision:* The Prisma seed script first deletes all existing data in reverse dependency order before inserting exact deterministic test data.
+   - *Rationale:* Ensures reliable E2E tests, analytics, and stale alert visibility states can be repeatedly tested locally.
