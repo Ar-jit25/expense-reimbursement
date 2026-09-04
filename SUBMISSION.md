@@ -1,52 +1,48 @@
-# Submission
+﻿# Submission
 
-Fill this in and commit it. This is the first file we open.
+## Deployment Status
+**Note:** The application is fully prepared for deployment, but manual deployment has not yet occurred as it requires access to the Render and Vercel dashboards.
 
-## Links
+Below are the exact steps remaining to deploy the application:
 
-- **GitHub repository:** <public repo URL>
-- **Live application:** <deployed URL>
+### Backend Deployment (Render)
+1. Log in to Render.com and create a new **Web Service**.
+2. Connect the GitHub repository.
+3. Set the **Root Directory** to ackend.
+4. Set the **Build Command** to: 
+pm install && npx prisma generate
+5. Set the **Start Command** to: 
+ode src/index.js
+6. Add the following environment variables (values from .env):
+   - DATABASE_URL
+   - DIRECT_URL
+   - SUPABASE_URL
+   - SUPABASE_ANON_KEY
+   - PORT=3001
+   - FRONTEND_URL (set to the Vercel URL once known)
+   - *(Ensure MOCK_AUTH is NOT set)*
 
-## Notes for the reviewer
+### Frontend Deployment (Vercel)
+1. Log in to Vercel.com and create a new **Project**.
+2. Connect the GitHub repository.
+3. Set the **Root Directory** to rontend.
+4. The Build Command should auto-detect as 
+pm run build and Output Directory as dist.
+5. Add the following environment variables:
+   - VITE_API_URL (set to the Render backend URL: e.g., https://your-backend.onrender.com/api)
+   - VITE_SUPABASE_URL
+   - VITE_SUPABASE_ANON_KEY
 
-<Anything we should know before opening the link — e.g. your host sleeps when idle and the first
-request can take up to a minute.>
+## Live URLs
+- **Frontend:** [Deployment Pending Vercel Setup]
+- **Backend API:** [Deployment Pending Render Setup]
 
-## Demo credentials
+## Demo Credentials
+The database has been seeded with real Supabase Auth identities. Use these to log in once deployed:
 
 | Role | Email | Password |
 |------|-------|----------|
-| <role 1> | | |
-| <role 2> | | |
-
-## Stack
-
-| Layer | What you used | Why |
-|-------|---------------|-----|
-| Frontend | | |
-| Backend | | |
-| Database | | |
-| Hosting | | |
-
-## Goal checklist
-
-Mark each honestly. Partial is fine — say what is partial.
-
-| # | Goal | Status | Notes |
-|---|------|--------|-------|
-| 1 | | Done / Partial / Not done | |
-| 2 | | | |
-| 3 | | | |
-| 4 | | | |
-| 5 | | | |
-| 6 | | | |
-| 7 | | | |
-| 8 | | | |
-| 9 | | | |
-| 10 | | | |
-
-## How much time did you actually spend?
-
-## What would you do next, with another 12 hours?
-
-## What are you least happy with in this codebase, and why?
+| Employee | emp@example.com | Employee1 |
+| Employee 2 | emp2@example.com | Employee2 |
+| Approver | pp@example.com | Approver1 |
+| Approver 2 | pp2@example.com | Approver2 |

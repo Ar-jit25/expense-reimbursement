@@ -81,3 +81,13 @@ Our Express middleware utilizes three distinct layers of authorization before re
 
 ### Seed Data
 - Uses Prisma to deterministically populate realistic data reflecting multiple edge cases (DRAFT, SUBMITTED, APPROVED, REJECTED, PAID), history entries, categories for analytics, and specific age rules to trigger stale alerts immediately upon initialization.
+
+## Phase 12: Production Authentication
+- **Authentication vs Authorization:**
+  - **Identity (AuthN):** Handled entirely by Supabase Auth (supabase.auth.signInWithPassword). The frontend receives a JWT and passes it to the backend.
+  - **Authorization (AuthZ):** The backend middleware (equireAuth) verifies the JWT against Supabase's keys, extracts the UUID, and strictly checks if that UUID exists in the application's User table. If not, access is rejected. Roles are stored exclusively in the application database.
+- **Session Management:** The frontend AuthContext uses Supabase's native session management (supabase.auth.getSession() and onAuthStateChange) to restore and refresh tokens, mapping them to the internal app profile fetched via /api/me.
+- **Deployment Topology:** 
+  - Backend: Node.js/Express deployed to Render, communicating with Supabase PostgreSQL (via transaction pooler port 6543).
+  - Frontend: React/Vite deployed to Vercel, communicating with the Render backend and Supabase Auth.
+

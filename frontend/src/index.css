@@ -19,6 +19,7 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); colo
 .flex-col { flex-direction: column; }
 .items-center { align-items: center; }
 .justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
 .gap-2 { gap: 0.5rem; }
 .gap-4 { gap: 1rem; }
 .mt-4 { margin-top: 1rem; }
@@ -69,3 +70,4 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); colo
 .table th, .table td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.875rem; }
 .table th { color: var(--text-muted); font-weight: 600; }
 .table tbody tr:hover { background-color: #f8fafc; cursor: pointer;}
+

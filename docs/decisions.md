@@ -129,3 +129,17 @@ one relation filter allows querying this cleanly without raw SQL.
 1. CreateReport.jsx: Added dateFrom <= dateTo validation before submission.
 2. ReportDetails.jsx: Added isProcessing state to disable all action buttons while an async action is in flight, preventing duplicate submissions. Enforced ejectReason.trim() check before enabling "Confirm Reject".
 3. Login.jsx: Replaced simple role-selector buttons with a professional email/password form. Mock credentials are still used (Phase 12 will integrate real Supabase auth).
+
+---
+## Phase 12 - Pre-provisioned Authentication Strategy (Sept 4, 2026)
+
+**Decision**: The application does not automatically provision users who authenticate via Supabase. If a valid Supabase Auth user logs in but has no matching UUID in the application's Prisma User table, they are denied access (403 Forbidden).
+
+**Rationale**: This is an internal expense portal. Authentication (Supabase) proves identity, but Authorization (Prisma) dictates access. Automatically provisioning users would allow anyone who registers or logs in via a Supabase feature to gain unauthorized access to internal workflows.
+
+## Phase 12 - Role Source of Truth (Sept 4, 2026)
+
+**Decision**: The frontend session context no longer relies on a mock role passed during login. It fetches the profile from a new /api/me endpoint.
+
+**Rationale**: Roles must not be trusted from the client. By fetching it directly from the backend using a valid JWT, the client accurately reflects the database-enforced permissions.
+

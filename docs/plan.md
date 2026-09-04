@@ -283,3 +283,18 @@ pm run build passed with 0 errors (one chunk-size warning, non-blocking).
 - Set all production env vars.
 - Run seed script against production database.
 - Update SUBMISSION.md.
+
+## Phase 12: Production Auth & Deployment (Completed)
+- **Objective:** Finalize production Supabase Auth, strict authorization, deployment setup, and final documentation.
+- **Implemented:**
+  - Removed auto-provisioning from ackend/src/middleware/auth.js.
+  - Enforced strict authorization: valid Supabase JWT must match a pre-existing application User record to access the app.
+  - Replaced mock authentication in Login.jsx with real supabase.auth.signInWithPassword().
+  - Added /api/me backend endpoint to serve the role from the secure database, bypassing frontend localStorage hacks.
+  - Rewrote AuthContext.jsx to use Supabase sessions securely.
+  - Fixed CSS centering for the Login page.
+  - Reconfigured CORS for production in index.js.
+  - Configured frontend to use import.meta.env.VITE_API_URL instead of hardcoded localhost.
+  - Created seed-production.js which populates the DB using real Supabase Auth UUIDs while keeping the old seed.js for automated tests.
+  - Verified full authentication chain with real E2E scripts against the live database.
+
