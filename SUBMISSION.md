@@ -4,7 +4,7 @@ Fill this in and commit it. This is the first file we open.
 
 ## Links
 
-- **GitHub repository:** [<public repo URL>](https://github.com/Ar-jit25/expense-reimbursement)
+- **GitHub repository:** <public repo URL>https://github.com/Ar-jit25/expense-reimbursement
 - **Live application:** <deployed URL>https://expense-reimbursement-eta.vercel.app/
 
 ## Notes for the reviewer
