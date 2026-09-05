@@ -21,7 +21,7 @@ Answer each of these, in your own words, once the system has taken real shape.
 
 ### Representative Request Path (Phase 3: Adding an Expense Line)
 1. **Client** sends `POST /api/reports/1/lines` with a valid JWT in the `Authorization` header.
-2. **`requireAuth` middleware** verifies the JWT with Supabase, fetches the Prisma `User`, and attaches `req.user`.
+2. **`rrequireAuth` middleware** verifies the JWT with Supabase, fetches the Prisma `User`, and attaches `req.user`.
 3. **`requireReportOwner` middleware** queries Prisma to verify Report #1 exists and its `ownerId` matches `req.user.id`. It also stashes the report's status on the request object.
 4. **`requireDraftReport` middleware** verifies the stashed status is `DRAFT`. If it were `SUBMITTED`, it would reject the request with a 400 Bad Request.
 5. **`LineController`** parses the `req.body` ensuring date, amount, category, and description are present.
@@ -30,7 +30,7 @@ Answer each of these, in your own words, once the system has taken real shape.
 
 ### Representative Request Path (Phase 4: Approving a Report)
 1. **Client (Approver)** sends `POST /api/reports/1/approve` with a valid JWT.
-2. **`requireAuth`** verifies identity (User is John).
+2. **`rrequireAuth`** verifies identity (User is John).
 3. **`requireRole('APPROVER')`** verifies John is an Approver.
 4. **`requireNotReportOwner`** verifies John did *not* create Report #1. (If he did, request is rejected).
 5. **`ReportController.approve`** catches the request.
@@ -57,10 +57,10 @@ Our Express middleware utilizes three distinct layers of authorization before re
 7. **Controller** wraps the response in { data, total, page, limit } and returns 200 OK.
 
 ### Frontend Architecture (React + Vite)
-- **Routing:** eact-router-dom manages client-side navigation. ProtectedRoute wrapper components restrict /approvals routes to the APPROVER role using Context.
+- **Routing:** react-router-dom manages client-side navigation. ProtectedRoute wrapper components restrict /approvals routes to the APPROVER role using Context.
 - **State Management:** AuthContext provides global user identity. Local state (useState) handles individual page states, forms, and loading indicators.
-- **Service Layer:** piClient.js intercepts all outbound fetch requests to inject the Authorization: Bearer <token> header, and standardizes error throwing by parsing the backend's JSON error messages.
-- **Data Fetching:** Standard useEffect hooks trigger etchReports methods from the eports.js service, updating local state variables and triggering re-renders.
+- **Service Layer:** apiClient.js intercepts all outbound fetch requests to inject the Authorization: Bearer <token> header, and standardizes error throwing by parsing the backend's JSON error messages.
+- **Data Fetching:** Standard useEffect hooks trigger `fetchReports` methods from the reports.js service, updating local state variables and triggering re-renders.
 
 
 ## Phase 8: Bulk Operations & Export
@@ -69,8 +69,8 @@ Our Express middleware utilizes three distinct layers of authorization before re
 
 ### Phase 9: Analytics Dashboard
 - Added GET /api/analytics endpoint returning DTO populated by AnalyticsService.
-- Enforced robust visibility bounded exactly by eport.service.js query generators.
-- Replaced mock KPI cards with AnalyticsOverview React component populated dynamically using echarts.
+- Enforced robust visibility bounded exactly by `report.service.js` query generators.
+- Replaced mock KPI cards with AnalyticsOverview React component populated dynamically using recharts.
 
 ## Phase 10: Stale Alerts and Seed Data
 
@@ -85,7 +85,7 @@ Our Express middleware utilizes three distinct layers of authorization before re
 ## Phase 12: Production Authentication
 - **Authentication vs Authorization:**
   - **Identity (AuthN):** Handled entirely by Supabase Auth (supabase.auth.signInWithPassword). The frontend receives a JWT and passes it to the backend.
-  - **Authorization (AuthZ):** The backend middleware (equireAuth) verifies the JWT against Supabase's keys, extracts the UUID, and strictly checks if that UUID exists in the application's User table. If not, access is rejected. Roles are stored exclusively in the application database.
+  - **Authorization (AuthZ):** The backend middleware (`requireAuth`) verifies the JWT against Supabase's keys, extracts the UUID, and strictly checks if that UUID exists in the application's User table. If not, access is rejected. Roles are stored exclusively in the application database.
 - **Session Management:** The frontend AuthContext uses Supabase's native session management (supabase.auth.getSession() and onAuthStateChange) to restore and refresh tokens, mapping them to the internal app profile fetched via /api/me.
 - **Deployment Topology:** 
   - Backend: Node.js/Express deployed to Render, communicating with Supabase PostgreSQL (via transaction pooler port 6543).

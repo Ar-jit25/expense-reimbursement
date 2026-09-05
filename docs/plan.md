@@ -199,7 +199,7 @@ During Phase 4, the authorization condition for `/approve`, `/reject`, and `/pay
 - Derived total sorting using an Authorized IDs Pipeline to leverage PostgreSQL aggregation while preserving Prisma's security.
 - Conditional pagination responses to maintain backward compatibility for existing unpaginated clients/tests.
 **Actual Implementation**:
-- Modified eport.controller.js to parse and validate page, limit, sort, order, status, search, ownerId, pproverId.
+- Modified report.controller.js to parse and validate page, limit, sort, order, status, search, ownerId, pproverId.
 - Rewrote eport.service.js:getReports to dynamically construct a safe Prisma where clause utilizing AND arrays to prevent filter bypassing.
 - Implemented the Authorized IDs Pipeline for sort=total by first retrieving matching IDs via Prisma, then injecting them safely into a parameterized $queryRaw to perform SUM, ORDER BY, and LIMIT/OFFSET.
 **Deviations**: Frontend integration was moved forward and implemented as actual Phase 7 because a usable frontend was needed to validate subsequent user-facing features. Consequently, Bulk Actions and CSV Export were implemented as actual Phase 8 instead of their originally planned Phase 7 position.from the approved architecture.
@@ -211,7 +211,7 @@ During Phase 4, the authorization condition for `/approve`, `/reject`, and `/pay
 - Adopted the Authorized IDs Pipeline (Two-Step query).
 - Fixed SQL table mapping and Enum mappings in verification scripts.
 - Adopted Conditional Response Wrapping to serve raw arrays when pagination parameters are absent.
-- Corrected a testing oversight in erify-phase4.js where the Phase 5 assignment requirement caused a 403 instead of the expected 400 state machine error. We explicitly assigned the approver in the test to properly evaluate the state machine rules.
+- Corrected a testing oversight in `verify-phase4.js` where the Phase 5 assignment requirement caused a 403 instead of the expected 400 state machine error. We explicitly assigned the approver in the test to properly evaluate the state machine rules.
 **Verification Outcome**: All 34 new Phase 6 verification checks passed successfully, alongside 100% regression pass rates for Phases 4 and 5.
 
 ## Phase 7: React Frontend Dashboard & Workflows
@@ -222,9 +222,9 @@ During Phase 4, the authorization condition for `/approve`, `/reject`, and `/pay
 - Normalize polymorphic backend responses in a centralized API service.
 - Create Dashboards, Create Report, Report Details, and Approval Queues.
 **Actual Implementation**:
-- Initialized Vite + React + react-router-dom in rontend/.
-- Created piClient.js to automatically attach the JWT and handle JSON/text responses.
-- Created eports.js to normalize the GET /api/reports unpaginated array vs paginated object response.
+- Initialized Vite + React + react-router-dom in `frontend/`.
+- Created `apiClient.js` to automatically attach the JWT and handle JSON/text responses.
+- Created `reports.js` to normalize the GET /api/reports unpaginated array vs paginated object response.
 - Implemented AuthContext to persist tokens in localStorage.
 - Built Dashboard with complete search, filtering, and sorting matching Phase 6 rules.
 - Built CreateReport supporting dynamic expense line creation and deletion.
@@ -265,7 +265,7 @@ Commit: feat: add bulk actions and CSV export
 
 ### Build Verification
 - 
-pm run build passed with 0 errors (one chunk-size warning, non-blocking).
+npm run build passed with 0 errors (one chunk-size warning, non-blocking).
 
 ### Automated Test Results
 - All Phase 4–10 regression suites: ✅ PASSED
@@ -287,7 +287,7 @@ pm run build passed with 0 errors (one chunk-size warning, non-blocking).
 ## Phase 12: Production Auth & Deployment (Completed)
 - **Objective:** Finalize production Supabase Auth, strict authorization, deployment setup, and final documentation.
 - **Implemented:**
-  - Removed auto-provisioning from ackend/src/middleware/auth.js.
+  - Removed auto-provisioning from `backend/src/middleware/auth.js`.
   - Enforced strict authorization: valid Supabase JWT must match a pre-existing application User record to access the app.
   - Replaced mock authentication in Login.jsx with real supabase.auth.signInWithPassword().
   - Added /api/me backend endpoint to serve the role from the secure database, bypassing frontend localStorage hacks.

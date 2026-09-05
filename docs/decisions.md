@@ -66,8 +66,8 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 
 ## Decision 12: Phase 6 Derived Total Sorting (Authorized IDs Pipeline)
 - **Chose:** To resolve sort=total by first querying Prisma for all authorized IDs, then passing those IDs into a $queryRaw PostgreSQL query for aggregation, sorting, and pagination.
-- **Rejected:** Hybrid in-memory sorting (pulling all full records into Node.js), a generic raw SQL query (recreating the authorization logic in SQL), or storing 	otal directly on the database column.
-- **Why:** Prisma does not natively support skip/	ake combined with sorting on an aggregate relation sum. The Authorized IDs Pipeline keeps the complex, critical authorization logic strictly within Prisma, using raw SQL *only* for the math and sorting on an already-vetted list of IDs. Storing a 	otal column was explicitly rejected by project constraints to prevent out-of-sync state.
+- **Rejected:** Hybrid in-memory sorting (pulling all full records into Node.js), a generic raw SQL query (recreating the authorization logic in SQL), or storing total directly on the database column.
+- **Why:** Prisma does not natively support skip/take combined with sorting on an aggregate relation sum. The Authorized IDs Pipeline keeps the complex, critical authorization logic strictly within Prisma, using raw SQL *only* for the math and sorting on an already-vetted list of IDs. Storing a total column was explicitly rejected by project constraints to prevent out-of-sync state.
 
 ## Decision 13: Mock Authentication Architecture (Phase 7)
 - **Chose:** To use a simple mock Login screen that injects static backend test tokens (TOKEN_EMP, TOKEN_APP1) into localStorage instead of integrating the real Supabase Auth UI.
@@ -75,7 +75,7 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Why:** The project constraints heavily prioritized demonstrating the backend logic and routing mechanisms quickly. Real auth would require database seeding of user records and email verifications, distracting from the core objective: the Expense Reimbursement workflow. By mocking the JWTs identically to the verification scripts, the frontend instantly interfaces with the rigid backend authorization layers perfectly.
 
 ## Decision 14: Client-Side Response Normalization (Phase 7)
-- **Chose:** To normalize the Phase 6 polymorphic pagination response strictly within the eportsService.js client layer.
+- **Chose:** To normalize the Phase 6 polymorphic pagination response strictly within the  `reportsService.js` client layer.
 - **Rejected:** Forcing the UI components to check Array.isArray(res).
 - **Why:** Separation of Concerns. The React components should only understand one data contract ({ data, total, page, limit }). By transforming the raw unpaginated backend array into this structure inside the service wrapper, the UI remains perfectly clean and resilient to future backend changes.
 
@@ -88,15 +88,14 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 ### Phase 9: Recharts & Node-side Time Series Bucketing
 - **Decision**: Node-side bucketing for 8-week trend.
 - **Rationale**: Prisma aggregations by ISO week require complex raw SQL (DATE_PART or strftime) that varies significantly by database engine (SQLite vs Postgres). Retrieving the raw objects and bucketing in Node provides predictable, ORM-agnostic behavior, aligned with the constraint to avoid raw SQL.
-- **Decision**: Using echarts for visualization.
+- **Decision**: Using `recharts` for visualization.
 - **Rationale**: Required minimal integration effort into the existing React components, fully supported by the README constraint 'Use any UI framework'.
 
 ## Phase 10: Stale Alerts and Seed Data
 
 1. **Per-Approver Dismissal with Redisplay**
    - *Decision:* Used a StaleAlert model with a unique constraint on [reportId, approverId] and an upsert logic on dismissal to set dismissedAt. Prisma queries exclude reports where the StaleAlert was dismissed within the redisplay threshold.
-   - *Rationale:* Ensures one approver's dismissal does not hide the alert for another. The Prisma 
-one relation filter allows querying this cleanly without raw SQL.
+   - *Rationale:* Ensures one approver's dismissal does not hide the alert for another. The Prisma `none` relation filter allows querying this cleanly without raw SQL.
 
 2. **Seed Data Idempotency**
    - *Decision:* The Prisma seed script first deletes all existing data in reverse dependency order before inserting exact deterministic test data.
@@ -111,7 +110,7 @@ one relation filter allows querying this cleanly without raw SQL.
 **Privacy Note**: The backend has always scoped analytics to the requesting user's role. Now the frontend accurately reflects this by hiding the analytics section from Employees. Note: the Analytics endpoint (Phase 9) does respond to Employees but scopes the data to their own reports — this is a design decision, not a bug.
 
 **Files Changed**:
-- rontend/src/pages/Dashboard.jsx: Conditioned <AnalyticsOverview /> on user.role === 'APPROVER'
+- frontend/src/pages/Dashboard.jsx: Conditioned <AnalyticsOverview /> on user.role === 'APPROVER'
 
 ---
 
@@ -127,7 +126,7 @@ one relation filter allows querying this cleanly without raw SQL.
 
 **Decisions**:
 1. CreateReport.jsx: Added dateFrom <= dateTo validation before submission.
-2. ReportDetails.jsx: Added isProcessing state to disable all action buttons while an async action is in flight, preventing duplicate submissions. Enforced ejectReason.trim() check before enabling "Confirm Reject".
+2. ReportDetails.jsx: Added isProcessing state to disable all action buttons while an async action is in flight, preventing duplicate submissions. Enforced `rejectReason.trim()` check before enabling "Confirm Reject".
 3. Login.jsx: Replaced simple role-selector buttons with a professional email/password form. Mock credentials are still used (Phase 12 will integrate real Supabase auth).
 
 ---

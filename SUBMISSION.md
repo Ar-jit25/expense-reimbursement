@@ -8,30 +8,27 @@ Below are the exact steps remaining to deploy the application:
 ### Backend Deployment (Render)
 1. Log in to Render.com and create a new **Web Service**.
 2. Connect the GitHub repository.
-3. Set the **Root Directory** to ackend.
-4. Set the **Build Command** to: 
-pm install && npx prisma generate
-5. Set the **Start Command** to: 
-ode src/index.js
-6. Add the following environment variables (values from .env):
-   - DATABASE_URL
-   - DIRECT_URL
-   - SUPABASE_URL
-   - SUPABASE_ANON_KEY
-   - PORT=3001
-   - FRONTEND_URL (set to the Vercel URL once known)
-   - *(Ensure MOCK_AUTH is NOT set)*
+3. Set the **Root Directory** to `backend`.
+4. Set the **Build Command** to: `npm install && npx prisma generate`
+5. Set the **Start Command** to: `node src/index.js`
+6. Add the following environment variables (values from `.env`):
+   - `DATABASE_URL`
+   - `DIRECT_URL`
+   - `SUPABASE_URL`
+   - `SUPABASE_ANON_KEY`
+   - `PORT=3001`
+   - `FRONTEND_URL` (set to the Vercel URL once known)
+   - *(Ensure `MOCK_AUTH` is NOT set)*
 
 ### Frontend Deployment (Vercel)
 1. Log in to Vercel.com and create a new **Project**.
 2. Connect the GitHub repository.
-3. Set the **Root Directory** to rontend.
-4. The Build Command should auto-detect as 
-pm run build and Output Directory as dist.
+3. Set the **Root Directory** to `frontend`.
+4. The Build Command should auto-detect as `npm run build` and Output Directory as `dist`.
 5. Add the following environment variables:
-   - VITE_API_URL (set to the Render backend URL: e.g., https://your-backend.onrender.com/api)
-   - VITE_SUPABASE_URL
-   - VITE_SUPABASE_ANON_KEY
+   - `VITE_API_URL` (set to the Render backend URL: e.g., `https://your-backend.onrender.com/api`)
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
 
 ## Live URLs
 - **Frontend:** [Deployment Pending Vercel Setup]
@@ -44,8 +41,8 @@ The database has been seeded with real Supabase Auth identities. Use these to lo
 |------|-------|----------|
 | Employee | emp@example.com | Employee1 |
 | Employee 2 | emp2@example.com | Employee2 |
-| Approver | pp@example.com | Approver1 |
-| Approver 2 | pp2@example.com | Approver2 |
+| Approver | app@example.com | Approver1 |
+| Approver 2 | app2@example.com | Approver2 |
 
 ## Features Summary
 
@@ -55,7 +52,7 @@ The database has been seeded with real Supabase Auth identities. Use these to lo
 - Application roles are enforced exclusively by the backend database (`prisma.user`), never trusted from the client.
 
 ### 2. Full Report & Expense Line Lifecycle
-- Complete state machine: `DRAFT` ➔ `SUBMITTED` ➔ `APPROVED` / `REJECTED` ➔ `PAID`.
+- Complete state machine: `DRAFT` -> `SUBMITTED` -> `APPROVED` / `REJECTED` -> `PAID`.
 - Editable reports in draft status prior to submission.
 - Rejection requires an explicit reason and returns the report to `DRAFT` for correction and resubmission.
 - Report totals calculated dynamically (`SUM(amount)`) on the fly, eliminating state desynchronization.
