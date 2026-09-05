@@ -11,9 +11,6 @@ venv/
 *.log
 .DS_Store
 
-
 # Local-only agent instructions and personal files
 agent/
 PERSONAL/
-!PERSONAL/study.md
-!PERSONAL/action_plan_updated.md
