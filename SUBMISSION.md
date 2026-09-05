@@ -1,82 +1,65 @@
-﻿# Submission
+# Submission
 
-## Deployment Status
-**Note:** The application is fully prepared for deployment, but manual deployment has not yet occurred as it requires access to the Render and Vercel dashboards.
+Fill this in and commit it. This is the first file we open.
 
-Below are the exact steps remaining to deploy the application:
+## Links
 
-### Backend Deployment (Render)
-1. Log in to Render.com and create a new **Web Service**.
-2. Connect the GitHub repository.
-3. Set the **Root Directory** to `backend`.
-4. Set the **Build Command** to: `npm install && npx prisma generate`
-5. Set the **Start Command** to: `node src/index.js`
-6. Add the following environment variables (values from `.env`):
-   - `DATABASE_URL`
-   - `DIRECT_URL`
-   - `SUPABASE_URL`
-   - `SUPABASE_ANON_KEY`
-   - `PORT=3001`
-   - `FRONTEND_URL` (set to the Vercel URL once known)
-   - *(Ensure `MOCK_AUTH` is NOT set)*
+- **GitHub repository:** <public repo URL>
+- **Live application:** <deployed URL>
 
-### Frontend Deployment (Vercel)
-1. Log in to Vercel.com and create a new **Project**.
-2. Connect the GitHub repository.
-3. Set the **Root Directory** to `frontend`.
-4. The Build Command should auto-detect as `npm run build` and Output Directory as `dist`.
-5. Add the following environment variables:
-   - `VITE_API_URL` (set to the Render backend URL: e.g., `https://your-backend.onrender.com/api`)
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
+## Notes for the reviewer
 
-## Live URLs
-- **Frontend:** [Deployment Pending Vercel Setup]
-- **Backend API:** [Deployment Pending Render Setup]
+The backend is deployed on Render (free tier) and the frontend is hosted on Vercel. 
+- Please note that on free tier instances, if the backend has been idle, the initial cold start request can take approximately 45-60 seconds to wake up. Subsequent requests respond immediately.
+- The system uses real Supabase Auth identities for email/password authentication. The database has been pre-seeded with test accounts across both Employee and Approver roles.
+- Some of the processes might take 20-30 seconds for completion, kindly be patient and allow the processes to complete.
 
-## Demo Credentials
-The database has been seeded with real Supabase Auth identities. Use these to log in once deployed:
+## Demo credentials
 
 | Role | Email | Password |
 |------|-------|----------|
 | Employee | emp@example.com | Employee1 |
 | Employee 2 | emp2@example.com | Employee2 |
-| Approver | app@example.com | Approver1 |
-| Approver 2 | app2@example.com | Approver2 |
+| Approver (Primary: Travel, Meals, Equipment) | app@example.com | Approver1 |
+| Approver 2 (Primary: Accommodation, Supplies, Software, Other) | app2@example.com | Approver2 |
 
-## Features Summary
+## Stack
 
-### 1. Zero-Trust Role-Based Access Control & Real Supabase Auth
-- Strict separation between Employees (`EMPLOYEE`) and Approvers (`APPROVER`).
-- Real Supabase Auth JWT verification against Supabase cryptographic public keys.
-- Application roles are enforced exclusively by the backend database (`prisma.user`), never trusted from the client.
+| Layer | What you used | Why |
+|-------|---------------|-----|
+| Frontend | React (Vite), React Router, Recharts, Vanilla CSS | Fast HMR, clean client-side routing, responsive custom UI without heavy Tailwind dependencies, declarative charting for dashboard analytics. |
+| Backend | Node.js, Express.js | Lightweight, fast HTTP middleware pipeline with straightforward asynchronous handling for atomic Prisma transactions and custom role guards. |
+| Database | PostgreSQL (hosted on Supabase), Prisma ORM | Relational data integrity, schema-as-code migrations, exact monetary representation via DECIMAL(12,2), and compile-time type safety. |
+| Hosting | Render (Backend API), Vercel (Frontend SPA) | Automated Git-driven continuous deployment, native environment variable configuration, and seamless SPA routing. |
 
-### 2. Full Report & Expense Line Lifecycle
-- Complete state machine: `DRAFT` -> `SUBMITTED` -> `APPROVED` / `REJECTED` -> `PAID`.
-- Editable reports in draft status prior to submission.
-- Rejection requires an explicit reason and returns the report to `DRAFT` for correction and resubmission.
-- Report totals calculated dynamically (`SUM(amount)`) on the fly, eliminating state desynchronization.
+## Goal checklist
 
-### 3. Automated Category-Based Routing Engine & Anti-Self-Approval
-- Line items are aggregated by category; the category with the highest total amount determines the primary category.
-- Primary Approver mapping:
-  - Approver A (`app@example.com`): `TRAVEL`, `MEALS`, `EQUIPMENT`
-  - Approver B (`app2@example.com`): `ACCOMMODATION`, `SUPPLIES`, `SOFTWARE`, `OTHER` (and ties)
-- Automatic conflict-of-interest swap: If the primary approver created the report, it is automatically assigned to the alternate approver.
-- Approvers can also submit their own expense reports as employees.
+Mark each honestly. Partial is fine - say what is partial.
 
-### 4. Global Submitted Queue vs. Assigned Approver Isolation
-- Approvers have a global view of all submitted reports across the organization.
-- Approvers can only open, view details, approve, or reject reports explicitly assigned to them.
-- Unassigned reports display an assignment badge and remain view-only.
+| # | Goal | Status | Notes |
+|---|------|--------|-------|
+| 1 | Accounts and roles | Done | Supabase Auth email/password login. Strict backend RBAC separating EMPLOYEE and APPROVER roles. Enforced at API layer, never trusted from client. Approvers can submit their own claims but cannot approve their own. |
+| 2 | Expense reports | Done | Reports belong to exactly one employee with title and date range. Full editing supported in DRAFT status. Non-destructive soft-delete archiving (isArchived) with dedicated Active and Archived dashboard views and one-click restore. |
+| 3 | Expense lines | Done | Itemized lines with date, exact DECIMAL(12,2) amount, category enum, and description. Line additions, edits, and deletions are strictly restricted to DRAFT status. Report totals are computed dynamically on the server from line items and never stored. |
+| 4 | Report lifecycle with rules | Done | Full state machine: DRAFT -> SUBMITTED -> APPROVED / REJECTED -> PAID, and REJECTED -> DRAFT for resubmission. Explicit RPC transition endpoints wrapped in atomic transactions with immutable history logging. Rejection requires a mandatory reason. Self-approval strictly forbidden. |
+| 5 | Assigned approvers | Done | Many-to-many relationship via report_approvers join table with composite primary key. Automatic primary approver routing based on highest category expenditure, with automatic conflict-of-interest swap if submitter is the assigned approver. Segregated queues: global submitted queue and assigned-to-me queue. |
+| 6 | Finding reports | Done | Full server-side search, filtering (status, owner, approver), sorting (date, status, and derived total spend), and pagination with total match counts. Utilizes Authorized IDs Pipeline for sorting by dynamic line totals. |
+| 7 | Acting on many reports at once | Done | Dedicated bulk-approve and bulk-reject endpoints with independent per-report transaction processing. Detailed result payload identifying successful IDs and reports failed due to self-approval conflicts or state violations. RFC 4180 compliant CSV export for approved reimbursements awaiting payment. |
+| 8 | A dashboard | Done | Approver landing dashboard displaying headline KPIs (awaiting approval, reimbursements due, approved this week, paid this week), category breakdown, status distribution, and 8-week trailing payment trends visualized using Recharts. Hidden for employee logins to preserve privacy. |
+| 9 | History you cannot rewrite | Done | Append-only ReportHistory table recording previous status, new status, actor, timestamp, and rejection reason within atomic transactions. Separate immutable Comment table for user notes. Deletion and mutation strictly restricted (onDelete: Restrict). |
+| 10 | Stale-approval alerts | Done | Background evaluation flagging SUBMITTED reports idling past 5 days. Navigation badge counter. Approvers can dismiss alerts for assigned reports. Alerts recur if the report remains unreviewed after a 5-hour window. Frontend polls periodically (every 5 hours) with manual refresh support. |
 
-### 5. Soft-Delete Archiving and Restore Lifecycle
-- Reports can be archived to declutter active workspaces.
-- Dedicated "Active Reports" and "Archived" tabs in the Dashboard.
-- Restoring seamlessly returns reports to active status while preserving full audit history.
-- Archived reports are excluded from active workflows and stale alert calculations.
+## How much time did you actually spend?
 
-### 6. Stale Alert Recurrence Engine (5 Days / 5 Hours)
-- Flags reports awaiting decision past 5 days (`STALE_THRESHOLD_DAYS=5`).
-- Dismissed alerts remain suppressed for 5 hours (`REDISPLAY_THRESHOLD_HOURS=5`), after which they recur if the report remains submitted.
-- Client polling interval is set to 5 hours (`5 * 60 * 60 * 1000` ms), with manual Refresh available on demand.
+Approximately 14-16 hours total, divided across incremental milestones: schema design & migrations, authentication & authorization middleware, core CRUD services, state machine & audit trails, React frontend & responsive UI polish, bulk operations & discovery engine, deployment configuration, and rigorous documentation & byte-level encoding audits.
+
+## What would you do next, with another 12 hours?
+
+1. **Direct Receipt Photo Uploads & OCR Extraction:** Integrate Supabase Storage bucket for receipt image uploads with automated OCR parsing (e.g. Google Cloud Vision API or Tesseract) to prefill expense line date, amount, and vendor.
+2. **Materialized View / Database Views for Aggregations:** Transition dynamic total calculation and sort-by-total from the two-step Authorized IDs Pipeline into a PostgreSQL indexed view or CTE for sub-millisecond sorting across millions of records.
+3. **Multi-Level Approval Chains & Escalation Thresholds:** Implement tiered approval policies (e.g., reports over $5,000 require secondary executive approval).
+4. **Automated Worker Queue for Alert Evaluations:** Offload stale alert checks from HTTP request interceptors into a background scheduled job (using BullMQ or pg_cron).
+
+## What are you least happy with in this codebase, and why?
+
+The derived total sorting implementation on the server. Because report totals are dynamically calculated from child line items and never stored as a mutable column (to prevent state drift), Prisma cannot natively sort parent reports by an aggregate sum while applying pagination. To solve this securely, we built a two-step "Authorized IDs Pipeline" that selects matching report IDs in Prisma and passes them into a parameterized raw SQL aggregation query. While mathematically pure, robust, and safe for current volume, it introduces additional query complexity that would need to be replaced with a materialized database view or Common Table Expression at 100x scale.

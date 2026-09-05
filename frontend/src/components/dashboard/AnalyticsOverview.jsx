@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { analyticsService } from '../../services/analytics';
 import { formatCurrency } from '../../utils/formatters';
 import { 
@@ -6,6 +6,20 @@ import {
   PieChart, Pie, Cell, Legend
 } from 'recharts';
 import './AnalyticsOverview.css';
+
+// Fixed, distinct color per category - ensures no two slices share the same color
+// regardless of how many categories are present in the data.
+const CATEGORY_COLORS = {
+  TRAVEL:        '#3b82f6', // blue
+  MEALS:         '#10b981', // emerald
+  ACCOMMODATION: '#f59e0b', // amber
+  SUPPLIES:      '#6366f1', // indigo
+  SOFTWARE:      '#a855f7', // purple
+  EQUIPMENT:     '#ec4899', // pink
+  OTHER:         '#1a1a1a', // near-black
+};
+// Fallback for any future categories not yet in the map
+const FALLBACK_COLORS = ['#06b6d4', '#84cc16', '#f43f5e', '#fb923c'];
 
 export function AnalyticsOverview() {
   const [data, setData] = useState(null);
@@ -31,7 +45,6 @@ export function AnalyticsOverview() {
   if (error) return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--danger-color)', background: '#fee2e2', borderRadius: '8px', marginBottom: '2rem' }}>{error}</div>;
   if (!data) return null;
 
-  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
   const categoryData = Object.entries(data.categoryBreakdown).map(([name, value]) => ({ name, value })).filter(d => d.value > 0);
   const trendData = data.eightWeekTrend.map(t => ({ name: t.week.split('-')[1], total: t.total }));
 
@@ -80,7 +93,10 @@ export function AnalyticsOverview() {
                 <PieChart>
                   <Pie data={categoryData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
                     {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={CATEGORY_COLORS[entry.name] ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length]}
+                      />
                     ))}
                   </Pie>
                   <RechartsTooltip formatter={(value) => formatCurrency(value)} />

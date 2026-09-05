@@ -1,334 +1,243 @@
-﻿# Plan
+# Plan
 
 This document records intended work before each phase and actual results after each phase.
 It is a sequential historical record, not a summary written at the end.
 
 ---
 
-## Phase 1 — Database Architecture
+## Phase 1 - Database Architecture
 
-### Intended work (recorded before implementation began)
+### Intended work
+Establish the PostgreSQL and Prisma relational foundation supporting all domain requirements. No application logic is built in this phase - only schema.
+1. Initialize backend project and dependencies.
+2. Configure Prisma datasource to point at Supabase PostgreSQL.
+3. Design and write schema covering all core models: User, ExpenseReport, ExpenseLine, ReportApprover, ReportHistory, Comment, StaleAlert.
+4. Apply migrations and verify relations, indexes, and constraints.
 
-**Goal**: Establish the PostgreSQL + Prisma relational foundation that supports all 10 required
-assignment goals. No application logic is built in this phase — only schema.
-
-**Build order and rationale**:
-
-1. Create `backend/` project directory and initialize npm — needed before Prisma can be installed.
-2. Install Prisma and configure `datasource` to point at Supabase PostgreSQL via `.env`.
-3. Design and write `prisma/schema.prisma` covering all required domain models:
-   User (profile), ExpenseReport, ExpenseLine, ReportApprover (join), ReportHistory,
-   Comment, StaleAlert. All enums, foreign keys, indexes, and constraints decided here so
-   that later phases do not require destructive schema changes.
-4. Run `prisma db push` to create the tables in the hosted database.
-5. Verify tables, foreign keys, and constraints are correct.
-6. Update docs/schema.md, docs/architecture.md, docs/decisions.md.
-7. Update PERSONAL/study.md with comprehensive database fundamentals tied to the implementation.
-8. Record actual results and commit.
-
-**Why schema first**: Every API endpoint in every subsequent phase reads or writes to these
-tables. Gaps here require migrations later, which is disruptive. It is faster and safer to
-design the complete schema once than to add columns repeatedly.
-
-**Estimated time**: 2–3 hours total including documentation.
-
-**What can be deferred if time is short**: Additional indexes can be added via a migration in a
-later phase without breaking anything. study.md entries can be expanded incrementally.
-
-**What cannot be deferred**: Every model. Every foreign key. Every enum. A missing model
-discovered in Phase 3 means a migration and potentially revisiting schema decisions already
-documented.
+### Actual results
+- Constructed schema.prisma with seven core tables: User, ExpenseReport, ExpenseLine, ReportApprover, ReportHistory, Comment, StaleAlert.
+- Standardized on Prisma 5.11.0 to avoid breaking changes in newer Prisma v7/v8 config formats.
+- Applied migrations using prisma migrate dev to ensure reproducible migration history.
 
 ---
 
-### Actual results (recorded after Phase 1 completed)
+## Phase 2 - Authentication & Backend Authorization
 
-**What was built**: 
-- Constructed the `schema.prisma` file incorporating seven core tables: `User`, `ExpenseReport`, `ExpenseLine`, `ReportApprover`, `ReportHistory`, `Comment`, and `StaleAlert`.
-- Applied migrations (using `prisma migrate dev --name init`) to the Supabase Postgres instance instead of just `db push` to align with professional deployment standards.
+### Intended work
+Establish authenticated identity and server-side permissions using Supabase Auth and Express middleware.
+1. Configure Supabase client and JWT verification middleware.
+2. Implement role-based access control (requireRole) and resource ownership enforcement (requireResourceOwnership).
+3. Verify unauthenticated requests are rejected and user roles (EMPLOYEE, APPROVER) are correctly resolved.
 
-**What deviated from intent**:
-- **Prisma Versioning Issue**: Attempted to install Prisma but received the newly-released v8 Developer Platform CLI and v7 Client. Prisma v7 has breaking changes to `schema.prisma` configuration (`url` inside `datasource` no longer supported).
-- **Fix**: Downgraded to a stable Prisma `v5.11.0` environment to maintain compatibility with a single-file, traditional Prisma configuration strategy. This is documented in `docs/decisions.md`.
-- **Database Push**: Rather than `db push` (which overrides database state), utilized `migrate dev` as per the updated execution rules to maintain proper Git-tracked migration histories.
-
-**What was estimated vs actual**: 
-- Estimated time: 2-3 hours.
-- Actual time spent was considerably less in active development, although diagnosing the Prisma CLI/Client mismatch consumed additional debugging cycles.
-
----
-## Phase 2 — Authentication + Backend Authorization
-
-### Intended work (recorded before implementation began)
-
-**Goal**: Establish authenticated identity and server-side permissions using Supabase Auth (email/password) and Express middleware.
-
-**Build order and rationale**:
-1. Install necessary dependencies (`express`, `@supabase/supabase-js`, `dotenv`, etc.) in `backend/`.
-2. Configure a Supabase client to interact with Supabase Auth.
-3. Create an Express server with an authentication middleware (`auth.js`) that verifies Supabase JWTs and resolves the user's application profile (and role) from the database.
-4. Implement authorization helper functions (e.g., `requireRole`, `requireOwner`) to enforce RBAC.
-5. Build a protected test endpoint (`GET /api/me` or similar) to verify auth/authorization flows.
-6. Write integration scripts/tests to verify that unauthenticated requests fail, roles are respected, and ownership is checked.
-7. Document the backend authentication/authorization flow in `study.md`, `architecture.md`, and `decisions.md`.
-
-**Why Auth first (before API logic)**: It's extremely difficult and insecure to retrofit authentication and authorization onto existing endpoints. Establishing the identity layer and authorization middleware now ensures all subsequent feature endpoints (Phase 3+) are built securely by design.
-
-**Estimated time**: 1.5 - 2 hours.
-
-**What can be deferred if time is short**: The test endpoints can be minimal.
-
-**What cannot be deferred**: Correct parsing of the JWT, verification of the user profile, and foolproof role determination logic in Express.
+### Actual results
+- Built requireAuth middleware validating bearer JWTs and resolving user profile from the database.
+- Implemented requireRole for endpoint authorization and requireResourceOwnership for object-level security.
+- Tested unauthenticated, employee, and approver access patterns with automated integration tests.
 
 ---
 
-### Actual results (recorded after Phase 2 completed)
+## Phase 3 - Reports & Expense Lines
 
-*Pending — will be filled in after implementation and verification.*
+### Intended work
+Implement core CRUD functionality for expense reports and expense lines, strictly enforcing ownership and DRAFT lifecycle constraints.
+1. Implement report endpoints: creation, listing, details view, update, archive/restore.
+2. Implement expense line endpoints: add, edit, remove.
+3. Enforce server-side dynamic calculation of total spend (never stored as a mutable column).
+4. Restrict line item modifications exclusively to DRAFT reports.
 
----
-
-## Phase 3 — Reports + Expense Lines
-
-### Intended work (recorded before implementation began)
-
-**Goal**: Implement the core CRUD functionality for expense reports and their associated line items, strictly enforcing ownership and lifecycle state (DRAFT) constraints on the server.
-
-**Build order and rationale**:
-1. **API Structure**: Setup `routes/`, `controllers/`, and `services/` layers for separation of concerns.
-2. **Report Endpoints**: 
-   - `POST /api/reports` (create)
-   - `GET /api/reports` (list user's own reports, omitting archived by default)
-   - `GET /api/reports/:id` (view specific report + lines + calculated total)
-   - `PUT /api/reports/:id` (edit title/dates, must be DRAFT)
-   - `PUT /api/reports/:id/archive` and `/restore` (visibility toggle)
-3. **Expense Line Endpoints**:
-   - `POST /api/reports/:id/lines` (add line, report must be DRAFT)
-   - `PUT /api/reports/:id/lines/:lineId` (edit line)
-   - `DELETE /api/reports/:id/lines/:lineId` (remove line)
-4. **Authorization Enforcement**: Integrate `requireResourceOwnership` from Phase 2.
-5. **Business Logic**: Prevent modifications to non-DRAFT reports. Calculate `total` dynamically on `GET` requests instead of storing it.
-
-**Why Services/Controllers pattern**: Keeping Prisma queries and business logic inside a `Service` makes it easier to unit test, reuse internally, and keeps Express `Controllers` focused on HTTP request/response parsing.
-
-**Estimated time**: 2-3 hours.
-
-**What can be deferred if time is short**: Advanced input validation frameworks (e.g., Joi/Zod) can be simplified to manual checks for now to prioritize core logic.
-
-**What cannot be deferred**: Server-side total calculation. Ownership checks. Rejecting edits on SUBMITTED/APPROVED reports.
+### Actual results
+- Built report and line controllers and services with strict ownership validation.
+- Implemented dynamic total calculation using reduce on line amounts, avoiding state desynchronization.
+- Enforced DRAFT-only mutations: updates to lines or report metadata on non-DRAFT reports return 400 Bad Request.
 
 ---
 
-### Actual results (recorded after Phase 3 completed)
+## Phase 4 - Report Lifecycle State Machine & Immutable History
 
-*Pending — will be filled in after implementation and verification.*
+### Intended work
+Implement the state machine (DRAFT -> SUBMITTED -> APPROVED -> PAID, and SUBMITTED -> REJECTED -> DRAFT) with atomic transactions and immutable audit trails.
+1. Add dedicated lifecycle RPC endpoints: /submit, /approve, /reject, /pay, /reset.
+2. Implement requireNotReportOwner middleware preventing approvers from acting on their own submissions.
+3. Wrap all state transitions and ReportHistory insertions inside Prisma transactions.
+4. Require non-empty rejection reasons on rejection.
 
----
-
-## Phase 4 — Report Lifecycle State Machine + Immutable History
-
-### Intended work (recorded before implementation began)
-
-**Goal**: Implement the core state machine for expense reports (DRAFT -> SUBMITTED -> APPROVED -> PAID) and (SUBMITTED -> REJECTED -> DRAFT). Enforce authorization, prevent invalid transitions, and maintain an immutable audit trail using database transactions.
-
-**Build order and rationale**:
-1. **API Endpoints**: Add specific lifecycle RPC-style routes to `report.routes.js`:
-   - `POST /api/reports/:id/submit` (Owner only)
-   - `POST /api/reports/:id/approve` (Approver only, NOT owner)
-   - `POST /api/reports/:id/reject` (Approver only, NOT owner. Requires reason)
-   - `POST /api/reports/:id/pay` (Approver only, NOT owner)
-   - `POST /api/reports/:id/reset` (Owner only, moves REJECTED -> DRAFT)
-2. **Authorization Middleware**: 
-   - Create `requireNotReportOwner` to ensure approvers cannot act on their own reports.
-3. **Service Logic (The State Machine)**:
-   - Use Prisma `$transaction` to ensure Atomicity.
-   - For every transition:
-     - Verify current status matches expected pre-requisite.
-     - Update status.
-     - Set appropriate timestamp (`submittedAt`, `approvedAt`, `paidAt`).
-     - `CREATE` a `ReportHistory` record locking in the actor, old status, new status, and reason.
-4. **Verification**: 
-   - Build a rigorous integration script testing all happy paths and asserting failures on invalid transitions, bad roles, and self-approval attempts.
-
-**Why explicit RPC endpoints instead of `PUT /api/reports/:id { status: 'APPROVED' }`**: Allowing a generic update endpoint to mutate the status is incredibly dangerous. It allows clients to bypass the state machine, skip timestamp assignments, and skip audit history creation. Explicit endpoints (`/approve`) guarantee the transaction block is executed exactly as designed.
-
-**Estimated time**: 2.5 hours.
-
-**What can be deferred if time is short**: Nothing. History, timestamps, and transactions are critical financial constraints.
-
-**What cannot be deferred**: `requireNotReportOwner`. Prisma `$transaction`.
+### Actual results
+- Implemented explicit lifecycle endpoints with transition validation and timestamp updates.
+- Encapsulated every status change and audit record insertion within prisma.$transaction blocks.
+- Enforced rejection reason requirements and prevented self-approval at the controller/middleware layer.
+- Validated lifecycle happy and failure paths across all states.
 
 ---
 
-### Actual results (recorded after Phase 4 completed)
+## Phase 5 - Approver Assignment & Queues
 
-*Pending — will be filled in after implementation and verification.*
+### Intended work
+Implement approver assignment mechanisms and segregated workflow queues.
+1. Create assignment management endpoints (POST/DELETE /api/reports/:id/assignments).
+2. Implement query filtering for queues: queue=submitted (all submitted) and queue=assigned (assigned to approver).
+3. Gate approval and rejection behind assigned-approver checks.
 
----
-
-
-**Phase 4 Boundary Inspection Note**:
-During Phase 4, the authorization condition for `/approve`, `/reject`, and `/pay` relies exclusively on global role-based authorization (`requireRole('APPROVER')`) combined with self-approval prevention (`requireNotReportOwner`). We intentionally stopped exactly at the phase boundary. We did *not* implement report-specific approver assignment constraints (e.g., verifying if the approver is explicitly assigned to this specific report via the `ReportApprover` join table). That constraint belongs strictly to Phase 5.
-
-## Phase 5 — Approver assignment + queues
-
-### Intended work (recorded before implementation began)
-*Refer to the implementation_plan.md artifact for full details on Phase 5 API, middleware, and logic updates.*
-
-### Actual results (recorded after Phase 5 completed)
-
-**What was built**:
-- **Assignment Routes**: `POST /api/reports/:id/assignments` and `DELETE`. 
-- **Idempotency**: Used Prisma `upsert` and caught `P2025` deletions to make assignments perfectly idempotent.
-- **Queue Semantics**: Updated `GET /api/reports` to process `queue=submitted` (all) and `queue=assigned` (assigned only). Employees accessing these routes are strictly blocked.
-- **Authorization Stack**: Added `requireAssignedApprover` to `/approve` and `/reject` making them assignment-gated, while preserving the overarching `requireNotReportOwner` block.
-
-**What deviated from intent**:
-- **Bug Fix**: My initial update to the Controller and Service missed applying properly due to string matching errors in the script, which caused the Employee Queue restriction test to fail initially because the new `list` method wasn't executing. I corrected the replacement script, ran the tests again, and all 18 integrations passed perfectly.
-
-**What was estimated vs actual**:
-- Estimated time: 2 hours.
-- Actual time spent: 1.5 hours.
+### Actual results
+- Built idempotent approver assignment using upsert and graceful deletion handling.
+- Implemented queue segregation in report.service.js: list query supports queue=submitted and queue=assigned, blocking employee access.
+- Added requireAssignedApprover middleware to approval actions.
 
 ---
 
-## Phase 6: Server-Side Report Discovery
-**Objective**: Implement robust search, filtering, sorting, and pagination for /api/reports without weakening the Phase 1-5 security and queuing boundaries.
-**Planned Behavior**:
-- Strict Authorization > Queue > Filter > Sort > Pagination pipeline.
-- Derived total sorting using an Authorized IDs Pipeline to leverage PostgreSQL aggregation while preserving Prisma's security.
-- Conditional pagination responses to maintain backward compatibility for existing unpaginated clients/tests.
-**Actual Implementation**:
-- Modified report.controller.js to parse and validate page, limit, sort, order, status, search, ownerId, pproverId.
-- Rewrote eport.service.js:getReports to dynamically construct a safe Prisma where clause utilizing AND arrays to prevent filter bypassing.
-- Implemented the Authorized IDs Pipeline for sort=total by first retrieving matching IDs via Prisma, then injecting them safely into a parameterized $queryRaw to perform SUM, ORDER BY, and LIMIT/OFFSET.
-**Deviations**: Frontend integration was moved forward and implemented as actual Phase 7 because a usable frontend was needed to validate subsequent user-facing features. Consequently, Bulk Actions and CSV Export were implemented as actual Phase 8 instead of their originally planned Phase 7 position.from the approved architecture.
-**Problems Encountered**:
-- Prisma does not support ordering by aggregate sums of relations while natively paginating.
-- Raw SQL table names had to be carefully matched with schema @@map definitions (expense_reports and expense_lines).
-- Adding pagination output ({ data, total, page, limit }) broke earlier test suites (Phases 3, 4, 5) which expected raw arrays.
-**Fixes**:
-- Adopted the Authorized IDs Pipeline (Two-Step query).
-- Fixed SQL table mapping and Enum mappings in verification scripts.
-- Adopted Conditional Response Wrapping to serve raw arrays when pagination parameters are absent.
-- Corrected a testing oversight in `verify-phase4.js` where the Phase 5 assignment requirement caused a 403 instead of the expected 400 state machine error. We explicitly assigned the approver in the test to properly evaluate the state machine rules.
-**Verification Outcome**: All 34 new Phase 6 verification checks passed successfully, alongside 100% regression pass rates for Phases 4 and 5.
+## Phase 6 - Server-Side Report Discovery
 
-## Phase 7: React Frontend Dashboard & Workflows
-**Objective**: Build a complete, functional React frontend for Employees and Approvers, integrating with the Phase 1-6 backend APIs.
-**Planned Behavior**:
-- Setup React with Vite.
-- Implement mock authentication supporting testing tokens (TOKEN_EMP, TOKEN_APP1).
-- Normalize polymorphic backend responses in a centralized API service.
-- Create Dashboards, Create Report, Report Details, and Approval Queues.
-**Actual Implementation**:
-- Initialized Vite + React + react-router-dom in `frontend/`.
-- Created `apiClient.js` to automatically attach the JWT and handle JSON/text responses.
-- Created `reports.js` to normalize the GET /api/reports unpaginated array vs paginated object response.
-- Implemented AuthContext to persist tokens in localStorage.
-- Built Dashboard with complete search, filtering, and sorting matching Phase 6 rules.
-- Built CreateReport supporting dynamic expense line creation and deletion.
-- Built Approvals queue with tabs for Global Submitted and Assigned to Me.
-**Deviations**: Frontend integration was moved forward and implemented as actual Phase 7 because a usable frontend was needed to validate subsequent user-facing features. Consequently, Bulk Actions and CSV Export were implemented as actual Phase 8 instead of their originally planned Phase 7 position.
-**Verification Outcome**: Manual build and routing confirmed. All backend regression verification scripts (Phase 4, 5, 6) continue to pass perfectly since backend logic was completely untouched.
+### Intended work
+Implement search, filtering, sorting, and pagination without weakening security or queue boundaries.
+1. Parse query parameters: page, limit, sort, order, status, search, ownerId, approverId.
+2. Construct safe Prisma where clauses with AND arrays.
+3. Build two-step query pipeline for sorting by derived total amounts.
+4. Support conditional pagination wrapping for backward compatibility.
 
+### Actual results
+- Implemented robust multi-field filtering and full-text search across titles and descriptions.
+- Built Authorized IDs Pipeline: fetches authorized IDs via Prisma, aggregates line sums via targeted parameterized SQL, and applies ordering/pagination.
+- Maintained backward compatibility by returning raw arrays when pagination parameters are omitted.
 
-# Phase 8 --- Bulk Actions & CSV Export
+---
 
-## Goal
-Implemented bulk approve and bulk reject with independent report processing. Added CSV export reusing the existing reportService filtering and authorization pipeline to ensure consistent data visibility. Verified via new phase 8 tests.
+## Phase 7 - React Frontend Dashboard & Workflows
 
-Commit: feat: add bulk actions and CSV export
+### Intended work
+Build a responsive React frontend for Employees and Approvers integrating with backend APIs.
+1. Initialize Vite + React frontend with routing and authentication context.
+2. Build unified API client handling token injection and response normalization.
+3. Implement Dashboard, Create/Edit Report, and Approvals queue views.
 
+### Actual results
+- Initialized React application with client-side routing, modular components, and dark theme design system.
+- Implemented apiClient with automatic Bearer token injection and error handling.
+- Built comprehensive dashboards for employees and approvers with status badges, line items management, and filter controls.
 
-### Phase 9: Dashboard Analytics
-- ✅ Implemented backend AnalyticsService correctly scoped to single source of truth authorization.
-- ✅ Returned KPI aggregates, category/status groupings, and 8-week trailing trends.
-- ✅ Integrated Recharts in React frontend to dynamically visualize backend metrics.
+---
 
+## Phase 8 - Bulk Actions & CSV Export
 
-## Phase 11 — Final Polish & E2E Audit (Sept 4, 2026)
+### Intended work
+Add bulk approval/rejection workflows and data export capabilities.
+1. Implement POST /api/reports/bulk-approve and POST /api/reports/bulk-reject with per-item error handling.
+2. Implement GET /api/reports/export-csv reusing service-layer authorization and filtering.
 
-### Session Goals
-- Audit README requirements against actual implementation.
-- Fix frontend validation gaps.
-- Polish Login UI.
-- Correct category enum mismatch.
-- Run full authorization and data-privacy E2E verification.
+### Actual results
+- Built bulk decision endpoints processing each report in isolated transactions, returning structured success and error summaries.
+- Created CSV export endpoint streaming escaped RFC 4180 CSV data matching active filter criteria.
+- Verified bulk actions and export permissions with automated integration tests.
 
-### Work Done
-- **Login.jsx**: Replaced button-only login with a proper email/password form. App title prominently displayed. Card is centered. Mock auth still active — Phase 12 will swap in Supabase signInWithPassword().
-- **Dashboard.jsx**: AnalyticsOverview now hidden for EMPLOYEE role per README intent. Employees see only their own reports list.
-- **CreateReport.jsx**: Added dateFrom <= dateTo client-side validation; fixed category options to match Prisma ExpenseCategory enum (SUPPLIES, SOFTWARE, EQUIPMENT instead of OFFICE_SUPPLIES).
-- **ReportDetails.jsx**: Added isProcessing guard state on all action buttons. Disabled "Confirm Reject" when reason is empty client-side.
-- **verify-phase11-e2e.js**: Added automated backend data-privacy verification confirming: Employee data isolation (12 own reports, 0 other-user reports), Approver cross-system visibility, Employee blocked from /api/alerts, unauthenticated blocked, backend rejection reason enforcement, analytics scoping per role.
+---
 
-### Build Verification
-- 
-npm run build passed with 0 errors (one chunk-size warning, non-blocking).
+## Phase 9 - Dashboard Analytics
 
-### Automated Test Results
-- All Phase 4–10 regression suites: ✅ PASSED
-- Phase 11 E2E Authorization suite: ✅ 8/8 PASSED
+### Intended work
+Provide aggregate business metrics and spending trends for approvers.
+1. Implement AnalyticsService computing KPIs, category breakdowns, and monthly spend history.
+2. Visualize data in the frontend using chart components.
 
-### Auth Architecture Audit
-- **Current (local)**: MOCK_AUTH=true intercepts tokens TOKEN_EMP, TOKEN_APP1, TOKEN_APP2 and injects deterministic UUID profiles. No real Supabase JWT verification.
-- **Production target (Phase 12)**: Login.jsx will call supabase.auth.signInWithPassword(), receive a real JWT, and pass it as Authorization: Bearer <jwt>. Backend verifies against SUPABASE_URL + SUPABASE_JWT_SECRET.
-- **Production transition**: Mock auth logic is fully isolated in src/config/mock-identities.js and conditionally activated only when MOCK_AUTH=true.
+### Actual results
+- Implemented GET /api/analytics returning total spend, pending review volume, category distribution, and trend series.
+- Integrated Recharts visual components in AnalyticsOverview, ensuring employee requests receive proper authorization blocks.
 
-### Remaining for Phase 12
-- Deploy backend to Render.
-- Deploy frontend to Vercel.
-- Swap Login.jsx to real Supabase auth.
-- Set all production env vars.
-- Run seed script against production database.
-- Update SUBMISSION.md.
+---
 
-## Phase 12: Production Auth & Deployment (Completed)
-- **Objective:** Finalize production Supabase Auth, strict authorization, deployment setup, and final documentation.
-- **Implemented:**
-  - Removed auto-provisioning from `backend/src/middleware/auth.js`.
-  - Enforced strict authorization: valid Supabase JWT must match a pre-existing application User record to access the app.
-  - Replaced mock authentication in Login.jsx with real supabase.auth.signInWithPassword().
-  - Added /api/me backend endpoint to serve the role from the secure database, bypassing frontend localStorage hacks.
-  - Rewrote AuthContext.jsx to use Supabase sessions securely.
-  - Fixed CSS centering for the Login page.
-  - Reconfigured CORS for production in index.js.
-  - Configured frontend to use import.meta.env.VITE_API_URL instead of hardcoded localhost.
-  - Created seed-production.js which populates the DB using real Supabase Auth UUIDs while keeping the old seed.js for automated tests.
-  - Verified full authentication chain with real E2E scripts against the live database.
+## Phase 10 - Stale Report Detection & Alerts
 
+### Intended work
+Detect reports idling in SUBMITTED state and notify approvers.
+1. Implement background calculation identifying reports submitted beyond the aging threshold.
+2. Store alerts and expose endpoints for approvers to list and dismiss alerts.
 
-## Phase 13: Category Auto-Assignment & Self-Approval Prevention Engine (Completed)
-- **Objective:** Automatically route reports upon submission based on highest expense amount per category, while forbidding self-approval.
-- **Implemented:**
-  - Implemented category summation logic in `report.service.js` during submission.
-  - Assigned Approver A (`app@example.com`) to `TRAVEL`, `MEALS`, `EQUIPMENT`.
-  - Assigned Approver B (`app2@example.com`) to `ACCOMMODATION`, `SUPPLIES`, `SOFTWARE`, `OTHER` and ties.
-  - Automatic self-approval swap: if the assigned approver created the report, it is reassigned to the other approver.
-  - Enabled approvers to submit reports as report owners while keeping strict decision separation.
-  - Allowed full editing of draft reports prior to submission (`EditReport.jsx`).
+### Actual results
+- Created StaleAlert evaluation engine tracking unreviewed submitted reports.
+- Added GET /api/alerts and POST /api/alerts/:id/dismiss endpoints with approver-only access.
+- Integrated alert bell icon and notification list in the frontend.
 
-## Phase 14: Global Submitted Queue with Action Restrictions (Completed)
-- **Objective:** Give approvers total visibility of submitted reports while restricting action only to assigned reports.
-- **Implemented:**
-  - Updated backend query to return all submitted reports in `queue=submitted`.
-  - Frontend checks assignment before allowing navigation to report details or decision actions.
-  - Non-assigned reports in the global queue display an assignment badge and remain view-only.
+---
 
-## Phase 15: Soft-Delete Archiving & Dedicated Restore Lifecycle (Completed)
-- **Objective:** Allow archiving without destroying audit records, with a dedicated restore workflow.
-- **Implemented:**
-  - Backed by `isArchived: Boolean` in Prisma schema.
-  - Added "Active Reports" and "Archived" tabs in the Dashboard.
-  - Added a "Restore" button in the Archived view that resets `isArchived` to `false`.
-  - Excluded archived reports from active queues and stale alert calculations.
+## Phase 11 - Final Polish & E2E Audit
 
-## Phase 16: Stale Alert Recurrence Engine & Periodic Polling (Completed)
-- **Objective:** 5-day aging for stale reports, 5-hour recurrence on dismissal, and 5-hour polling cycle.
-- **Implemented:**
-  - Configured `STALE_THRESHOLD_DAYS=5` and `REDISPLAY_THRESHOLD_HOURS=5` in `backend/.env`.
-  - Updated `alert.service.js` to compute age using 5 days and redisplay window using 5 hours.
-  - Set client polling in `AlertsBadge.jsx` and `Alerts.jsx` to 5 hours (`18,000,000` ms).
-  - Added manual Refresh button in `Alerts.jsx` for on-demand recalculation.
-  - Updated seed script to populate realistic 5-day stale reports and 5-hour recurred alerts.
+### Intended work
+Comprehensive audit of functional requirements, data isolation, and user experience.
+1. Audit validation rules across forms (date ordering, mandatory fields, enum alignment).
+2. Polish Login page and navigation layouts.
+3. Execute end-to-end authorization and privacy test suite.
+
+### Actual results
+- Standardized ExpenseCategory choices across frontend and backend.
+- Added client-side date range validation and action guard states.
+- Executed full test suite verifying employee data isolation and approver permissions.
+
+---
+
+## Phase 12 - Production Auth & Deployment
+
+### Intended work
+Finalize production authentication, strict authorization boundaries, and deployment configurations.
+1. Remove auto-provisioning middleware to enforce strict RBAC.
+2. Transition frontend from mock tokens to real Supabase Auth sessions.
+3. Prepare production seed scripts and environment configs.
+
+### Actual results
+- Replaced auto-provisioning with strict 403 checks for unmapped identities.
+- Swapped frontend authentication to supabase.auth.signInWithPassword with /api/me role resolution.
+- Configured dynamic API URL environment handling and verified live end-to-end flows.
+
+---
+
+## Phase 13 - Category Auto-Assignment & Self-Approval Prevention Engine
+
+### Intended work
+Automatically route reports on submission based on category spend and prevent self-approval.
+1. Aggregate line item spend by category during report submission.
+2. Route report to designated approver based on highest spending category.
+3. Automatically swap approvers if the assigned approver is also the report owner.
+
+### Actual results
+- Implemented deterministic category routing: Approver A handles Travel, Meals, Equipment; Approver B handles Accommodation, Supplies, Software, Other.
+- Added conflict-of-interest swap ensuring report owners can never approve their own submissions.
+- Added draft editing support enabling report updates prior to submission.
+
+---
+
+## Phase 14 - Global Submitted Queue with Action Restrictions
+
+### Intended work
+Provide approvers global visibility of all pending submissions while restricting decision rights to assigned reports.
+1. Update queue=submitted to list all unarchived submitted reports across all submitters.
+2. Restrict approve/reject actions exclusively to assigned approvers.
+
+### Actual results
+- Updated queue query to provide approvers full visibility of organization-wide submitted reports.
+- Enforced action gating: non-assigned reports remain read-only with assignment badges in the UI.
+
+---
+
+## Phase 15 - Soft-Delete Archiving & Dedicated Restore Lifecycle
+
+### Intended work
+Allow non-destructive archiving of inactive expense reports with restore functionality.
+1. Support isArchived flag on ExpenseReport.
+2. Provide dedicated Active and Archived views in the frontend.
+3. Exclude archived reports from active queues and stale alert computations.
+
+### Actual results
+- Added archiving and restore endpoints updating isArchived status.
+- Built separate Active and Archived tabs in the dashboard with one-click restore.
+- Filtered archived reports out of active queues, KPI analytics, and alert pipelines.
+
+---
+
+## Phase 16 - Stale Alert Recurrence Engine & Periodic Polling
+
+### Intended work
+Configure 5-day aging threshold for stale reports, 5-hour redisplay window after dismissal, and 5-hour client polling.
+1. Configure STALE_THRESHOLD_DAYS=5 and REDISPLAY_THRESHOLD_HOURS=5 in environment settings.
+2. Implement recurrence logic in alert evaluation.
+3. Configure periodic client-side polling with manual refresh capability.
+
+### Actual results
+- Configured 5-day stale threshold and 5-hour redisplay window in backend services.
+- Updated frontend alerts polling to 5 hours (18,000,000 ms) with manual Refresh button.
+- Populated database seeds demonstrating aging calculations and recurring alert notifications.

@@ -1,164 +1,63 @@
-﻿# Decisions
+# Decisions
 
-Log the decisions that actually shaped this codebase — the ones where a real alternative existed and
-you picked one. At least five entries. For each: what you chose, what you rejected, and why. At least
-one entry must be a decision you later reversed — say what changed your mind. It can be any entry
-below, not necessarily the last one; add a **Later reversed:** line to whichever one it is.
-
-## Decision 1: Prisma CLI Version (Phase 1)
-
-- **Chose:** Downgrade to Prisma v5.11.0 (both CLI and Client).
-- **Rejected:** Prisma v8 Platform CLI and Prisma v7 ORM CLI.
-- **Why:** npm installed Prisma v8 (the new Prisma Platform CLI) while the client was v7, causing compatibility errors (`validate` command wasn't found). Furthermore, v7 introduced breaking changes to `schema.prisma` removing `datasource url` support in favor of `prisma.config.ts`. To stick to a proven, single-file schema configuration that matches standard paradigms, v5 was explicitly chosen.
-
-## Decision 2: Report Totals (Phase 1)
-
-- **Chose:** Calculate the total dynamically via `SUM(amount)` from `ExpenseLine`.
-- **Rejected:** Storing a `total` decimal column directly on `ExpenseReport`.
-- **Why:** The instructions explicitly forbid trusting the frontend for totals. If `total` is a column on the report, every line update requires a transaction to update the report total. This risks desync bugs. Computing it via Prisma/SQL guarantees the single source of truth is the lines themselves.
-
-## Decision 3: Profile Linking (Phase 2)
-- **Chose:** "On-the-fly" profile creation in Express `requireAuth` middleware.
-- **Rejected:** Creating users via Supabase Database Triggers (`auth.users` -> `public.users`).
-- **Why:** While Postgres triggers are "cleaner" for automatic row creation, they hide application logic in the database layer. By explicitly doing `prisma.user.upsert`/`create` inside the Express middleware when a valid token is seen for the first time, the profile creation logic (and default role assignment) stays inside the version-controlled Node.js application where developers expect to find it.
-
-## Decision 4: Authorization Enforcement (Phase 2)
-- **Chose:** Modular middleware (`requireRole` and `requireResourceOwnership`).
-- **Rejected:** Checking roles and ownership manually inside every route handler.
-- **Why:** The instructions stress that we must never trust the frontend for roles or ownership. If these checks are manual in every endpoint, one developer forgetting to add the check introduces a critical vulnerability. Middleware makes authorization declarative and difficult to skip.
-
-
-## Decision 5: Controller-Service Architecture (Phase 3)
-- **Chose:** A strict 3-tier architecture: Routes -> Controllers -> Services.
-- **Rejected:** Fat Route Handlers (putting `prisma.query` directly inside `app.get()`).
-- **Why:** While Fat Route Handlers are faster to write, they make unit testing impossible without mocking the entire HTTP request. Separating business logic into a `Service` class means we can theoretically call `ReportService.createReport()` from a background cron job, a script, or a WebSocket, without an Express `req` or `res` object existing.
-
-## Decision 6: The "Total" Calculation Endpoint (Phase 3)
-- **Chose:** Calculating the total during the Prisma `GET` query map: `reports.map(report => report.lines.reduce(sum, line))`.
-- **Rejected:** Sending just the lines to the frontend and trusting the frontend to calculate the total.
-- **Why:** The instructions were explicit: "Never trust a client-provided total" and "do not add a stored authoritative total". By calculating it on the server right before sending the JSON response, the frontend gets a clean, authoritative `$220.00` and doesn't need to write error-prone floating-point math.
-
-
-## Decision 7: Explicit State Transitions vs. Generic Updates (Phase 4)
-- **Chose:** Explicit endpoints (`POST /api/reports/:id/approve`).
-- **Rejected:** Allowing clients to send `PUT /api/reports/:id { status: 'APPROVED' }`.
-- **Why:** The State Machine. A generic update endpoint relies on the frontend knowing the rules, which violates the security model. By creating explicit transition endpoints, the backend strictly orchestrates the atomic transaction: checking the prerequisite state, changing the state, stamping the timestamp, and logging the history.
-
-## Decision 8: Transaction Atomicity (Phase 4)
-- **Chose:** `prisma.$transaction`.
-- **Rejected:** Awaiting sequential `.update()` and `.create()` calls.
-- **Why:** If the server crashes or the network drops after `.update()` completes but before the `ReportHistory.create()` completes, the audit log is permanently corrupted. A database transaction ensures both succeed, or neither succeeds.
-
-## Decision 9: The Authorization Phase Boundary (Phase 4)
-- **Chose:** To permit *any* global Approver (who is not the owner) to approve any submitted report during Phase 4.
-- **Rejected:** Checking the `ReportApprover` table to restrict approval only to explicitly assigned approvers.
-- **Why:** To respect the project's strict phase boundaries. Phase 4 is exclusively about the Lifecycle State Machine and Immutable History. Phase 5 handles "Assigned Approvers." It is crucial in iterative development not to prematurely assume or implement business rules (like assignment routing logic) before their designated phase, as requirements for those features often introduce complexities best handled in isolation. Phase 4's `requireNotReportOwner` middleware strictly implements the "never their own" requirement without crossing into Phase 5 territory.
-
-## Decision 10: Phase 5 Assignment Management Authority
-- **Chose:** Any authenticated user with the APPROVER role may manage eligible-approver assignments for reports currently in the SUBMITTED state. (This includes assigning one or multiple eligible approvers, and removing assignments). Employees who own the reports cannot manage assignments merely through ownership.
-- **Rejected:** Creating an explicit Admin role, or allowing Employees to route their own reports.
-- **Why:** The README and action plan mandated that assignments exist but completely omitted *who* holds the authority to manage them. Introducing a third "Admin" role would drastically expand the scope of the project and violate the constraint to stick to Employee/Approver roles. Allowing employees to pick their own approvers is a security anti-pattern (they could pick a lenient friend). Allowing any Approver to manage assignments allows for a self-organizing "queue triage" system (e.g., a manager claims a report by assigning it to themselves, or assigns it to a subordinate).
-
-## Decision 11: Phase 6 Conditional Pagination Response Contract
-- **Chose:** To return a paginated object { data, total, page, limit } *only* if page or limit parameters are explicitly supplied. Otherwise, return the legacy raw array [].
-- **Rejected:** Unconditionally returning the paginated object for all requests.
-- **Why:** Backward compatibility. Returning the object unconditionally broke all Phase 3, 4, and 5 integration tests (and hypothetically, existing frontend consumers) that explicitly expected an array. The conditional design safely introduces new capabilities without shattering the established API contract.
-
-## Decision 12: Phase 6 Derived Total Sorting (Authorized IDs Pipeline)
-- **Chose:** To resolve sort=total by first querying Prisma for all authorized IDs, then passing those IDs into a $queryRaw PostgreSQL query for aggregation, sorting, and pagination.
-- **Rejected:** Hybrid in-memory sorting (pulling all full records into Node.js), a generic raw SQL query (recreating the authorization logic in SQL), or storing total directly on the database column.
-- **Why:** Prisma does not natively support skip/take combined with sorting on an aggregate relation sum. The Authorized IDs Pipeline keeps the complex, critical authorization logic strictly within Prisma, using raw SQL *only* for the math and sorting on an already-vetted list of IDs. Storing a total column was explicitly rejected by project constraints to prevent out-of-sync state.
-
-## Decision 13: Mock Authentication Architecture (Phase 7)
-- **Chose:** To use a simple mock Login screen that injects static backend test tokens (TOKEN_EMP, TOKEN_APP1) into localStorage instead of integrating the real Supabase Auth UI.
-- **Rejected:** Setting up real Supabase authentication with email/passwords.
-- **Why:** The project constraints heavily prioritized demonstrating the backend logic and routing mechanisms quickly. Real auth would require database seeding of user records and email verifications, distracting from the core objective: the Expense Reimbursement workflow. By mocking the JWTs identically to the verification scripts, the frontend instantly interfaces with the rigid backend authorization layers perfectly.
-
-## Decision 14: Client-Side Response Normalization (Phase 7)
-- **Chose:** To normalize the Phase 6 polymorphic pagination response strictly within the  `reportsService.js` client layer.
-- **Rejected:** Forcing the UI components to check Array.isArray(res).
-- **Why:** Separation of Concerns. The React components should only understand one data contract ({ data, total, page, limit }). By transforming the raw unpaginated backend array into this structure inside the service wrapper, the UI remains perfectly clean and resilient to future backend changes.
-
-
-### Phase 8: Reused Express Middleware Logic for Bulk Actions
-- **Context**: The existing /approve and /reject endpoints use Express middleware (`requireNotReportOwner`, `requireAssignedApprover`) to enforce rules based on `req.params.id`.
-- **Decision**: Instead of duplicating business logic or trying to run middleware inside a loop, we extracted the Prisma queries from the middleware into a private controller helper `_checkApprovalAuthorization`. 
-- **Consequences**: Safely allowed bulk operations to process reports independently (e.g. failing on self-approval while succeeding on others) without disrupting the single-report state machine.
-
-### Phase 9: Recharts & Node-side Time Series Bucketing
-- **Decision**: Node-side bucketing for 8-week trend.
-- **Rationale**: Prisma aggregations by ISO week require complex raw SQL (DATE_PART or strftime) that varies significantly by database engine (SQLite vs Postgres). Retrieving the raw objects and bucketing in Node provides predictable, ORM-agnostic behavior, aligned with the constraint to avoid raw SQL.
-- **Decision**: Using `recharts` for visualization.
-- **Rationale**: Required minimal integration effort into the existing React components, fully supported by the README constraint 'Use any UI framework'.
-
-## Phase 10: Stale Alerts and Seed Data
-
-1. **Per-Approver Dismissal with Redisplay**
-   - *Decision:* Used a StaleAlert model with a unique constraint on [reportId, approverId] and an upsert logic on dismissal to set dismissedAt. Prisma queries exclude reports where the StaleAlert was dismissed within the redisplay threshold.
-   - *Rationale:* Ensures one approver's dismissal does not hide the alert for another. The Prisma `none` relation filter allows querying this cleanly without raw SQL.
-
-2. **Seed Data Idempotency**
-   - *Decision:* The Prisma seed script first deletes all existing data in reverse dependency order before inserting exact deterministic test data.
-   - *Rationale:* Ensures reliable E2E tests, analytics, and stale alert visibility states can be repeatedly tested locally.
-
-## Phase 11 — Analytics Visibility Decision (Sept 4, 2026)
-
-**Decision**: The AnalyticsOverview component is now rendered ONLY for Approver-role users on the Dashboard.
-
-**Rationale**: README Goal #8 states the dashboard shows "reports awaiting approval, total reimbursements due, reports approved this week…" — these are cross-system metrics that only an Approver/Finance role can meaningfully interpret. The README does not specify an Analytics overview for Employees. Employee primary experience is creating, tracking, and submitting their own reports.
-
-**Privacy Note**: The backend has always scoped analytics to the requesting user's role. Now the frontend accurately reflects this by hiding the analytics section from Employees. Note: the Analytics endpoint (Phase 9) does respond to Employees but scopes the data to their own reports — this is a design decision, not a bug.
-
-**Files Changed**:
-- frontend/src/pages/Dashboard.jsx: Conditioned <AnalyticsOverview /> on user.role === 'APPROVER'
+Log the decisions that actually shaped this codebase - the ones where a real alternative existed and
+you picked one. For each: what you chose, what you rejected, and why. At least one entry must be a
+decision you later reversed - see the **Later reversed** note on Decision 3.
 
 ---
 
-## Phase 11 — Category Enum Fix (Sept 4, 2026)
+## Decision 1: ORM Choice - Prisma over raw SQL or Knex
 
-**Decision**: Fixed OFFICE_SUPPLIES → SUPPLIES in the Create Report form category dropdown.
+- **Chose:** Prisma ORM with a schema-first `schema.prisma` file as the single source of truth for all models, relations, enums, and migrations.
+- **Rejected:** Writing raw parameterized SQL via `pg` directly, or using a lightweight query builder like Knex.
+- **Why:** Prisma generates a fully-typed client from the schema, meaning a typo in a field name is a compile-time error, not a runtime surprise. Migrations are tracked in Git alongside the schema, so the database state is always reproducible. The one place where Prisma was insufficient - sorting by a derived aggregate `SUM(amount)` across a relation - was handled by a single targeted `$queryRaw` call on an already-vetted list of IDs, keeping raw SQL strictly contained.
 
-**Rationale**: Prisma schema defines SUPPLIES, SOFTWARE, EQUIPMENT, not OFFICE_SUPPLIES. The old dropdown would send an invalid value to the backend, causing a 400 error on any report creation using that category. Added missing SOFTWARE and EQUIPMENT options.
+---
+
+## Decision 2: Never Store a Derived `total` Column
+
+- **Chose:** Calculating `total` dynamically on every fetch as `report.lines.reduce((sum, line) => sum + Number(line.amount), 0)` in Node, rather than persisting it to the database.
+- **Rejected:** Adding a `total` column to `ExpenseReport` and updating it whenever a line is added, edited, or removed.
+- **Why:** A stored total is a denormalized value that can silently drift out of sync. If a line is deleted and the update to `total` fails mid-transaction, the stored value lies. By computing on demand, the value is always exactly correct, and the logic is in one place. The performance cost is negligible for expense reports of realistic size.
 
 ---
 
-## Phase 11 — Form Validation (Sept 4, 2026)
+## Decision 3: Profile Auto-Provisioning in Auth Middleware
 
-**Decisions**:
-1. CreateReport.jsx: Added dateFrom <= dateTo validation before submission.
-2. ReportDetails.jsx: Added isProcessing state to disable all action buttons while an async action is in flight, preventing duplicate submissions. Enforced `rejectReason.trim()` check before enabling "Confirm Reject".
-3. Login.jsx: Replaced simple role-selector buttons with a professional email/password form. Mock credentials are still used (Phase 12 will integrate real Supabase auth).
+- **Chose (originally):** Auto-create a user profile in the `User` table the first time a valid Supabase JWT is seen, using `prisma.user.upsert` inside the `requireAuth` middleware. This let any Supabase Auth registrant gain access without manual seeding.
+- **Rejected:** Requiring pre-seeded user records in the database before anyone can log in.
+- **Why:** Reduced setup friction during early development. Any token that passed JWT verification would automatically bootstrap a profile.
+
+**Later reversed:** This decision was reversed in Phase 12 (Production Auth). The auto-provisioning was removed entirely. A valid Supabase JWT that has no matching record in the application `User` table is now rejected with `403 Forbidden`. The reason: this is an internal expense portal, not a self-service signup product. Supabase Auth and the application's authorization system are separate concerns. Proving identity (AuthN) does not grant access (AuthZ) - that is determined exclusively by whether a pre-provisioned record exists in the database with an assigned role. Auto-provisioning bypassed that boundary entirely.
 
 ---
-## Phase 12 - Pre-provisioned Authentication Strategy (Sept 4, 2026)
 
-**Decision**: The application does not automatically provision users who authenticate via Supabase. If a valid Supabase Auth user logs in but has no matching UUID in the application's Prisma User table, they are denied access (403 Forbidden).
+## Decision 4: Explicit State-Transition Endpoints over a Generic PATCH
 
-**Rationale**: This is an internal expense portal. Authentication (Supabase) proves identity, but Authorization (Prisma) dictates access. Automatically provisioning users would allow anyone who registers or logs in via a Supabase feature to gain unauthorized access to internal workflows.
+- **Chose:** Dedicated endpoints for each lifecycle event: `POST /api/reports/:id/submit`, `/approve`, `/reject`, `/pay`, `/reset`.
+- **Rejected:** A single `PATCH /api/reports/:id` endpoint that accepts `{ status: 'APPROVED' }` from the client.
+- **Why:** A generic update trusts the client to know which transitions are legal. The state machine rules (e.g., you can only approve a SUBMITTED report, you cannot approve your own report) live entirely in the backend. Explicit endpoints make each transition a first-class action: the backend checks the current state, validates authorization, updates the status, stamps a timestamp, and writes an immutable history entry - all in a single `prisma.$transaction`. A generic PATCH endpoint would require the client to send the right combination of fields, and would inevitably drift.
 
-## Phase 12 - Role Source of Truth (Sept 4, 2026)
+---
 
-**Decision**: The frontend session context no longer relies on a mock role passed during login. It fetches the profile from a new /api/me endpoint.
+## Decision 5: Automatic Category-Based Approver Routing over Manual Assignment
 
-**Rationale**: Roles must not be trusted from the client. By fetching it directly from the backend using a valid JWT, the client accurately reflects the database-enforced permissions.
+- **Chose:** On submission, the backend automatically aggregates line items by category, identifies the primary category (highest total spend), and assigns the report to the designated approver for that category. If the designated approver is the report's owner, the system swaps to the other approver.
+- **Rejected:** Keeping the original "Global Queue + Assign to Me" flow where approvers manually claimed reports from a shared inbox.
+- **Why:** Manual claiming introduces a race condition (two approvers grabbing the same report simultaneously), creates uneven workload distribution, and has no conflict-of-interest enforcement. The routing rules are deterministic, auditable, and consistent. The anti-self-approval swap closes a structural loophole without requiring a separate admin role or explicit policy enforcement at the UI level.
 
+---
 
-## Decision 15: Automated Category-Based Routing Engine & Anti-Self-Approval
-- **Chose:** Auto-calculate the primary expense category by summing line items per category, then automatically assign Approver A (`app@example.com`) or Approver B (`app2@example.com`). If the primary approver is the report owner, automatically swap to the other approver.
-- **Rejected:** Allowing approvers to claim or assign reports to themselves manually from the queue.
-- **Why:** Eliminates conflicts of interest and ensures reports are handled by designated domain approvers without manual triage bottlenecks.
+## Decision 6: Soft-Delete Archiving over Hard Delete
 
-## Decision 16: Global Submitted Queue with Enforced Detail Access Boundaries
-- **Chose:** Display all submitted reports across the organization in the global queue for organizational visibility, but restrict opening, viewing details, and taking action exclusively to the assigned approver.
-- **Rejected:** Hiding unassigned reports completely or allowing any approver to act on any report.
-- **Why:** Approvers need high-level organizational visibility into all pending liabilities, but strict division of responsibility prevents multiple approvers from interfering with another approver's designated reviews.
+- **Chose:** An `isArchived: Boolean` flag on `ExpenseReport`, with separate Active and Archived views in the dashboard and a dedicated Restore action.
+- **Rejected:** Permanently deleting reports or having no archive mechanism at all.
+- **Why:** Expense reports are financial records. Hard deleting them would destroy audit history and potentially violate financial record-keeping requirements. The `isArchived` flag keeps the record intact and immutable while removing it from active workflows, queue counts, and stale alert calculations. Restore is provided to make archiving reversible and safe to use without fear.
 
-## Decision 17: Soft-Delete Archiving with Dedicated Restore Lifecycle
-- **Chose:** Use an `isArchived: Boolean` flag in `ExpenseReport` and present separate Active / Archived views in the dashboard. Provide a dedicated "Restore" action.
-- **Rejected:** Hard deleting reports or archiving without a restore path.
-- **Why:** Complies with financial audit rules that require historical expense records to remain permanent and immutable, while providing employees and managers a way to declutter active workspaces.
+---
 
-## Decision 18: Stale Alert Lifecycles: 5-Day Threshold and 5-Hour Recurrence / Polling
-- **Chose:** 5 days for stale detection (`STALE_THRESHOLD_DAYS=5`), 5 hours for recurrence (`REDISPLAY_THRESHOLD_HOURS=5`), and 5 hours for periodic client polling (`5 * 60 * 60 * 1000` ms).
-- **Rejected:** Instant permanent dismissal without recurrence, or high-frequency polling in production that strains database connection poolers.
-- **Why:** Balances timely reminder alerts for dormant reports with database performance and resource efficiency.
+## Decision 7: Client Polling over WebSockets for Stale Alerts
+
+- **Chose:** Frontend polls `GET /api/analytics/alerts` every 5 hours via `setInterval` inside a `useEffect`, with a manual Refresh button for on-demand checks.
+- **Rejected:** A persistent WebSocket connection or server-sent events (SSE) to push stale alert notifications to the browser in real time.
+- **Why:** Stale alerts are not time-critical to the second - a report that has been sitting for 5 days can tolerate a 5-hour notification delay. WebSockets require persistent connections and server-side state management that adds significant infrastructure complexity for no meaningful UX benefit at this scale. Polling is simple, stateless, and works correctly behind any reverse proxy or CDN without configuration.
