@@ -1,4 +1,4 @@
-﻿const prisma = require('../config/prisma');
+const prisma = require('../config/prisma');
 const { Prisma } = require('@prisma/client');
 
 class ReportService {
@@ -25,15 +25,20 @@ class ReportService {
     // Phase 9: Extracted to a single source of truth for authorization visibility
   getAuthorizationFilter(userId, userRole, queue) {
     const AND = [];
-    AND.push({ isArchived: false });
+    // archived queue shows only archived; everything else excludes archived
+    if (queue === 'archived') {
+      AND.push({ isArchived: true });
+    } else {
+      AND.push({ isArchived: false });
+    }
 
     if (userRole === 'EMPLOYEE') {
       AND.push({ ownerId: userId });
     } else {
       if (queue === 'submitted') {
         AND.push({ status: 'SUBMITTED' });
+        AND.push({ approvers: { none: {} } });
       } else if (queue === 'assigned') {
-        AND.push({ status: 'SUBMITTED' });
         AND.push({ approvers: { some: { approverId: userId } } });
       } else {
         AND.push({
@@ -157,7 +162,7 @@ class ReportService {
   async getReportById(id, ownerId) {
     const report = await prisma.expenseReport.findUnique({
       where: { id: parseInt(id) },
-      include: { lines: true, history: true, comments: true }
+      include: { lines: true, history: { include: { actor: true } }, comments: { include: { author: true } } }
     });
 
     if (!report) return null;
@@ -231,8 +236,49 @@ class ReportService {
   }
 
   async submitReport(id, ownerId) {
-    // Note: ownerId verification is assumed to happen in middleware, but passing it for history log
-    return this._transitionState(id, ownerId, 'DRAFT', 'SUBMITTED', 'submittedAt');
+    const report = await this._transitionState(id, ownerId, 'DRAFT', 'SUBMITTED', 'submittedAt');
+    
+    // Auto-Assignment Logic
+    const fullReport = await prisma.expenseReport.findUnique({
+      where: { id: parseInt(id) },
+      include: { lines: true }
+    });
+
+    const categoryTotals = {};
+    for (const line of fullReport.lines) {
+      categoryTotals[line.category] = (categoryTotals[line.category] || 0) + Number(line.amount);
+    }
+    
+    let primaryCategory = null;
+    let maxTotal = -1;
+    for (const [cat, total] of Object.entries(categoryTotals)) {
+      if (total > maxTotal) {
+        maxTotal = total;
+        primaryCategory = cat;
+      }
+    }
+
+    const approverACategories = ['TRAVEL', 'MEALS', 'EQUIPMENT'];
+    let targetEmail = approverACategories.includes(primaryCategory) ? 'app@example.com' : 'app2@example.com';
+    
+    let assignedApprover = await prisma.user.findUnique({ where: { email: targetEmail } });
+    
+    // Conflict check
+    if (assignedApprover && assignedApprover.id === ownerId) {
+       const otherEmail = targetEmail === 'app@example.com' ? 'app2@example.com' : 'app@example.com';
+       assignedApprover = await prisma.user.findUnique({ where: { email: otherEmail } });
+    }
+
+    if (assignedApprover) {
+      await prisma.reportApprover.create({
+        data: {
+          reportId: fullReport.id,
+          approverId: assignedApprover.id
+        }
+      });
+    }
+
+    return report;
   }
 
   async approveReport(id, approverId) {
@@ -304,5 +350,9 @@ class ReportService {
 }
 
 module.exports = new ReportService();
+
+
+
+
 
 

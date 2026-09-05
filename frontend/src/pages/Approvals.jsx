@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { reportsService } from '../services/reports';
+import { useAuth } from '../context/AuthContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { Badge } from '../components/common/Badge';
 
 export default function Approvals() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [queueType, setQueueType] = useState('assigned'); // 'assigned' or 'submitted'
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,6 +19,8 @@ export default function Approvals() {
 
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [showRejectInput, setShowRejectInput] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
 
   const fetchReports = async () => {
     try {
@@ -72,17 +76,18 @@ export default function Approvals() {
 
   const handleBulkReject = async () => {
     if (selectedIds.length === 0) return;
-    const reason = window.prompt("Enter rejection reason (required):");
-    if (!reason || reason.trim() === '') {
+    if (!rejectReason || rejectReason.trim() === '') {
       alert("Rejection reason is required.");
       return;
     }
     try {
       setBulkLoading(true);
       setBulkResult(null);
-      const res = await reportsService.bulkReject(selectedIds, reason);
+      const res = await reportsService.bulkReject(selectedIds, rejectReason);
       setBulkResult(res);
       setSelectedIds([]);
+      setShowRejectInput(false);
+      setRejectReason('');
       fetchReports();
     } catch (err) {
       setError(err.message);
@@ -148,11 +153,26 @@ export default function Approvals() {
           <span className="font-medium text-blue-800">{selectedIds.length} reports selected</span>
           <div className="flex gap-2">
             <button className="btn btn-primary" onClick={handleBulkApprove} disabled={bulkLoading}>
-              {bulkLoading ? 'Processing...' : 'Bulk Approve'}
+              {bulkLoading ? 'Processing...' : 'Approve'}
             </button>
-            <button className="btn btn-danger" onClick={handleBulkReject} disabled={bulkLoading}>
-              {bulkLoading ? 'Processing...' : 'Bulk Reject'}
-            </button>
+            {!showRejectInput ? (
+              <button className="btn btn-danger" onClick={() => setShowRejectInput(true)} disabled={bulkLoading}>
+                {bulkLoading ? 'Processing...' : 'Reject'}
+              </button>
+            ) : (
+              <div className="flex gap-2 items-center">
+                <input 
+                  className="input" 
+                  placeholder="Rejection reason..." 
+                  value={rejectReason} 
+                  onChange={e => setRejectReason(e.target.value)} 
+                />
+                <button className="btn btn-danger" disabled={bulkLoading || !rejectReason.trim()} onClick={handleBulkReject}>
+                  Confirm Reject
+                </button>
+                <button className="btn btn-outline" onClick={() => setShowRejectInput(false)}>Cancel</button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -181,22 +201,26 @@ export default function Approvals() {
               </tr>
             </thead>
             <tbody>
-              {reports.map((r) => (
-                <tr key={r.id} style={{ cursor: 'pointer', backgroundColor: selectedIds.includes(r.id) ? '#f8fafc' : 'transparent' }}>
+              {reports.map((r) => {
+                const canOpen = queueType === 'assigned' || (r.approvers && r.approvers.some(a => a.approverId === user.id));
+                const rowClick = () => { if (canOpen) navigate(`/reports/${r.id}`) };
+                return (
+                <tr key={r.id} style={{ cursor: canOpen ? 'pointer' : 'not-allowed', backgroundColor: selectedIds.includes(r.id) ? '#f8fafc' : 'transparent', opacity: canOpen ? 1 : 0.6 }}>
                   <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
                     <input 
                       type="checkbox" 
+                      disabled={!canOpen}
                       checked={selectedIds.includes(r.id)} 
                       onChange={() => handleSelect(r.id)} 
                     />
                   </td>
-                  <td onClick={() => navigate(`/reports/${r.id}`)} style={{ fontWeight: 500 }}>{r.title}</td>
-                  <td onClick={() => navigate(`/reports/${r.id}`)}><span className="text-muted text-sm">{r.ownerId}</span></td>
-                  <td onClick={() => navigate(`/reports/${r.id}`)}>{formatCurrency(r.total)}</td>
-                  <td onClick={() => navigate(`/reports/${r.id}`)}>{formatDate(r.submittedAt)}</td>
-                  <td onClick={() => navigate(`/reports/${r.id}`)}><Badge status={r.status} /></td>
+                  <td onClick={rowClick} style={{ fontWeight: 500 }}>{r.title}</td>
+                  <td onClick={rowClick}><span className="text-muted text-sm">{r.ownerId}</span></td>
+                  <td onClick={rowClick}>{formatCurrency(r.total)}</td>
+                  <td onClick={rowClick}>{formatDate(r.submittedAt)}</td>
+                  <td onClick={rowClick}><Badge status={r.status} /></td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         )}

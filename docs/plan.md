@@ -298,3 +298,37 @@ pm run build passed with 0 errors (one chunk-size warning, non-blocking).
   - Created seed-production.js which populates the DB using real Supabase Auth UUIDs while keeping the old seed.js for automated tests.
   - Verified full authentication chain with real E2E scripts against the live database.
 
+
+## Phase 13: Category Auto-Assignment & Self-Approval Prevention Engine (Completed)
+- **Objective:** Automatically route reports upon submission based on highest expense amount per category, while forbidding self-approval.
+- **Implemented:**
+  - Implemented category summation logic in `report.service.js` during submission.
+  - Assigned Approver A (`app@example.com`) to `TRAVEL`, `MEALS`, `EQUIPMENT`.
+  - Assigned Approver B (`app2@example.com`) to `ACCOMMODATION`, `SUPPLIES`, `SOFTWARE`, `OTHER` and ties.
+  - Automatic self-approval swap: if the assigned approver created the report, it is reassigned to the other approver.
+  - Enabled approvers to submit reports as report owners while keeping strict decision separation.
+  - Allowed full editing of draft reports prior to submission (`EditReport.jsx`).
+
+## Phase 14: Global Submitted Queue with Action Restrictions (Completed)
+- **Objective:** Give approvers total visibility of submitted reports while restricting action only to assigned reports.
+- **Implemented:**
+  - Updated backend query to return all submitted reports in `queue=submitted`.
+  - Frontend checks assignment before allowing navigation to report details or decision actions.
+  - Non-assigned reports in the global queue display an assignment badge and remain view-only.
+
+## Phase 15: Soft-Delete Archiving & Dedicated Restore Lifecycle (Completed)
+- **Objective:** Allow archiving without destroying audit records, with a dedicated restore workflow.
+- **Implemented:**
+  - Backed by `isArchived: Boolean` in Prisma schema.
+  - Added "Active Reports" and "Archived" tabs in the Dashboard.
+  - Added a "Restore" button in the Archived view that resets `isArchived` to `false`.
+  - Excluded archived reports from active queues and stale alert calculations.
+
+## Phase 16: Stale Alert Recurrence Engine & Periodic Polling (Completed)
+- **Objective:** 5-day aging for stale reports, 5-hour recurrence on dismissal, and 5-hour polling cycle.
+- **Implemented:**
+  - Configured `STALE_THRESHOLD_DAYS=5` and `REDISPLAY_THRESHOLD_HOURS=5` in `backend/.env`.
+  - Updated `alert.service.js` to compute age using 5 days and redisplay window using 5 hours.
+  - Set client polling in `AlertsBadge.jsx` and `Alerts.jsx` to 5 hours (`18,000,000` ms).
+  - Added manual Refresh button in `Alerts.jsx` for on-demand recalculation.
+  - Updated seed script to populate realistic 5-day stale reports and 5-hour recurred alerts.

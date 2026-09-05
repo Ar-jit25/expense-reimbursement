@@ -122,4 +122,40 @@ const requireAssignedApprover = async (req, res, next) => {
   }
 };
 
-module.exports = { requireReportOwner, requireNotReportOwner, requireDraftReport, requireReportSubmitted, requireAssignedApprover };
+
+/**
+ * Validates that the user has access to view the report.
+ * - Owners can view their own reports (any status).
+ * - Approvers can view any SUBMITTED, APPROVED, REJECTED, or PAID report.
+ */
+const requireReportAccess = async (req, res, next) => {
+  try {
+    const reportId = parseInt(req.params.id);
+    if (isNaN(reportId)) return res.status(400).json({ error: 'Invalid report ID' });
+
+    const report = await prisma.expenseReport.findUnique({
+      where: { id: reportId },
+      select: { ownerId: true, status: true }
+    });
+
+    if (!report) return res.status(404).json({ error: 'Report not found' });
+
+    const isOwner = report.ownerId === req.user.id;
+    const isApprover = req.user.role === 'APPROVER';
+    const isAllowedStatus = ['SUBMITTED', 'APPROVED', 'REJECTED', 'PAID'].includes(report.status);
+
+    if (!isOwner && !(isApprover && isAllowedStatus)) {
+      return res.status(403).json({ error: 'Forbidden: You do not have access to this report' });
+    }
+
+    req.reportStatus = report.status;
+    next();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error checking report access' });
+  }
+};
+
+module.exports = { requireReportOwner, requireReportAccess, requireNotReportOwner, requireDraftReport, requireReportSubmitted, requireAssignedApprover };
+
+

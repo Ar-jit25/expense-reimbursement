@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { reportsService } from '../services/reports';
 import { useAuth } from '../context/AuthContext';
@@ -37,6 +37,7 @@ export default function ReportDetails() {
 
   const handleAction = async (actionFn, ...args) => {
     try {
+      setIsProcessing(true);
       setActionError(null);
       await actionFn(id, ...args);
       await fetchReport();
@@ -44,6 +45,8 @@ export default function ReportDetails() {
       setRejectReason('');
     } catch (err) {
       setActionError(err.message);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -54,24 +57,35 @@ export default function ReportDetails() {
   const total = report.lines?.reduce((acc, line) => acc + parseFloat(line.amount), 0) || 0;
   
   // Authorization rules
-  const isOwner = user.role === 'EMPLOYEE' && report.ownerId === user.token; // we use token as id in mock
+  const isOwner = report.ownerId === user.id;
   const isApprover = user.role === 'APPROVER';
-  
-  // Actually the backend checks req.user.id. Since token == user.id in our mock, we check if the user is in the approvers list.
-  const isAssigned = report.approvers?.some(a => a.approverId === user.token);
+  const isAssigned = report.approvers?.some(a => a.approverId === user.id);
+
+  // Find latest rejection reason from history
+  const rejectionEntry = report.history?.find(h => h.toStatus === 'REJECTED');
+  const rejectionReason = rejectionEntry?.reason;
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{report.title}</h1>
-          <p className="text-muted mt-2">Owner ID: {report.ownerId}</p>
+          <p className="text-muted mt-2">
+            {formatDate(report.dateFrom)} - {formatDate(report.dateTo)}
+          </p>
         </div>
         <div className="flex flex-col items-end gap-2">
           <Badge status={report.status} />
           <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{formatCurrency(total)}</h2>
         </div>
       </div>
+
+      {report.status === 'REJECTED' && rejectionReason && (
+        <div className="card mb-6" style={{ borderLeft: '4px solid #ef4444', backgroundColor: '#fef2f2', padding: '1rem 1.5rem' }}>
+          <strong style={{ color: '#dc2626' }}>Rejection Reason:</strong>
+          <p className="mt-1" style={{ color: '#991b1b' }}>{rejectionReason}</p>
+        </div>
+      )}
 
       {actionError && <div className="card bg-red-100 text-red-800 mb-6">{actionError}</div>}
 
@@ -104,13 +118,24 @@ export default function ReportDetails() {
 
       {report.history && report.history.length > 0 && (
         <div className="card mb-6">
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem' }}>Latest History</h3>
-          <p className="text-sm">
-            <strong>{formatDate(report.history[0].createdAt)}</strong> - 
-            Moved from {report.history[0].oldStatus} to {report.history[0].newStatus} 
-            by {report.history[0].actorId}
-            {report.history[0].reason && ` (Reason: ${report.history[0].reason})`}
-          </p>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem' }}>History</h3>
+          {report.history.map((entry, idx) => (
+            <div key={idx} className="flex items-start gap-3 mb-3 pb-3" style={{ borderBottom: idx < report.history.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: entry.toStatus === 'REJECTED' ? '#ef4444' : entry.toStatus === 'APPROVED' || entry.toStatus === 'PAID' ? '#22c55e' : '#6366f1', marginTop: '4px', flexShrink: 0 }} />
+              <div>
+                <p className="text-sm">
+                  <strong>{formatDate(entry.createdAt)}</strong>{' '}
+                  {entry.fromStatus ? `${entry.fromStatus} ? ` : ''}<strong>{entry.toStatus}</strong>
+                  {' '}by <strong>{entry.actor?.name || entry.actorId}</strong>
+                </p>
+                {entry.reason && (
+                  <p className="text-sm mt-1" style={{ color: '#dc2626' }}>
+                    Reason: {entry.reason}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -118,26 +143,40 @@ export default function ReportDetails() {
       <div className="flex gap-4 border-t pt-6" style={{ borderTop: '1px solid var(--border-color)' }}>
         <button className="btn btn-outline" onClick={() => navigate(-1)}>Back</button>
 
+        {/* Draft owner can edit or submit */}
         {isOwner && report.status === 'DRAFT' && (
-          <button className="btn btn-primary" disabled={isProcessing} onClick={() => handleAction(reportsService.submitReport)}>
-            Submit Report
-          </button>
-        )}
-
-        {isApprover && report.status === 'SUBMITTED' && (
           <>
-            {!isAssigned ? (
-              <button className="btn btn-primary" disabled={isProcessing} onClick={() => handleAction(reportsService.assignApprover, user.token)}>
-                Assign to Me
-              </button>
-            ) : (
-              <button className="btn btn-outline" disabled={isProcessing} onClick={() => handleAction(reportsService.removeApprover, user.token)}>
-                Remove Assignment
-              </button>
-            )}
+            <button className="btn btn-outline" onClick={() => navigate(`/reports/${id}/edit`)}>
+              Edit Report
+            </button>
+            <button className="btn btn-primary" disabled={isProcessing} onClick={() => handleAction(reportsService.submitReport)}>
+              Submit Report
+            </button>
           </>
         )}
 
+        {/* Owner can archive submitted / approved / paid */}
+        {isOwner && ['SUBMITTED', 'APPROVED', 'PAID'].includes(report.status) && !report.archived && (
+          <button className="btn btn-outline" disabled={isProcessing} onClick={() => handleAction(reportsService.archiveReport)}>
+            Archive
+          </button>
+        )}
+
+        {/* Owner can restore archived */}
+        {isOwner && report.archived && (
+          <button className="btn btn-outline" disabled={isProcessing} onClick={() => handleAction(reportsService.restoreReport)}>
+            Restore
+          </button>
+        )}
+
+        {/* Owner can reset rejected to draft */}
+        {isOwner && report.status === 'REJECTED' && (
+          <button className="btn btn-outline" disabled={isProcessing} onClick={() => handleAction(reportsService.resetToDraft)}>
+            Reset to Draft
+          </button>
+        )}
+
+        {/* Assigned approver actions */}
         {isApprover && isAssigned && report.status === 'SUBMITTED' && !showRejectInput && (
           <>
             <button className="btn btn-success" disabled={isProcessing} onClick={() => handleAction(reportsService.approveReport)}>
@@ -149,10 +188,16 @@ export default function ReportDetails() {
           </>
         )}
 
+        {isApprover && isAssigned && report.status === 'APPROVED' && (
+          <button className="btn btn-primary" disabled={isProcessing} onClick={() => handleAction(reportsService.payReport)}>
+            Mark as Paid
+          </button>
+        )}
+
         {showRejectInput && (
           <div className="flex gap-2 items-center">
             <input 
-              className="input" placeholder="Rejection reason..." 
+              className="input" placeholder="Rejection reason (required)..." 
               value={rejectReason} onChange={e => setRejectReason(e.target.value)} 
             />
             <button className="btn btn-danger" disabled={isProcessing || !rejectReason.trim()} onClick={() => handleAction(reportsService.rejectReport, rejectReason)}>Confirm Reject</button>
@@ -163,5 +208,3 @@ export default function ReportDetails() {
     </div>
   );
 }
-
-

@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Approvals from './pages/Approvals';
 import Alerts from './pages/Alerts';
 import CreateReport from './pages/CreateReport';
+import EditReport from './pages/EditReport';
 import ReportDetails from './pages/ReportDetails';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -28,6 +29,7 @@ function AppRoutes() {
         {/* All authenticated users */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/reports/new" element={<ProtectedRoute><CreateReport /></ProtectedRoute>} />
+        <Route path="/reports/:id/edit" element={<ProtectedRoute><EditReport /></ProtectedRoute>} />
         <Route path="/reports/:id" element={<ProtectedRoute><ReportDetails /></ProtectedRoute>} />
         
         {/* Approver only */}

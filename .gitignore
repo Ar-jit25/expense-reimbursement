@@ -1,4 +1,4 @@
-node_modules/
+﻿node_modules/
 dist/
 build/
 .next/
@@ -15,3 +15,5 @@ venv/
 # Local-only agent instructions and personal files
 agent/
 PERSONAL/
+!PERSONAL/study.md
+!PERSONAL/action_plan_updated.md

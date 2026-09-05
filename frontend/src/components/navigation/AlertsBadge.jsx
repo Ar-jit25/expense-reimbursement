@@ -18,8 +18,8 @@ export function AlertsBadge() {
     };
     
     fetchAlerts();
-    // In a real app, we might poll or use websockets. Here we just fetch on mount.
-    const interval = setInterval(fetchAlerts, 60000);
+    // Poll every 5 hours (5 * 60 * 60 * 1000 ms) to recalculate stale reports and recurrence
+    const interval = setInterval(fetchAlerts, 5 * 60 * 60 * 1000);
     return () => {
       mounted = false;
       clearInterval(interval);

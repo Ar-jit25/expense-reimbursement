@@ -3,7 +3,7 @@ const router = express.Router();
 const reportController = require('../controllers/report.controller');
 const lineController = require('../controllers/line.controller');
 const { requireAuth } = require('../middleware/auth');
-const { requireReportOwner, requireDraftReport, requireNotReportOwner, requireReportSubmitted, requireAssignedApprover } = require('../middleware/reportOwnership');
+const { requireReportOwner, requireReportAccess, requireDraftReport, requireNotReportOwner, requireReportSubmitted, requireAssignedApprover } = require('../middleware/reportOwnership');
 const { requireRole } = require('../middleware/roles');
 
 // All endpoints require authentication
@@ -19,7 +19,7 @@ router.post('/bulk/reject', requireRole('APPROVER'), reportController.bulkReject
 router.get('/export/csv', reportController.exportCsv);
 
 // Protected by ownership
-router.get('/:id', requireReportOwner, reportController.get);
+router.get('/:id', requireReportAccess, reportController.get);
 // Protected by ownership AND lifecycle state (DRAFT only)
 router.put('/:id', requireReportOwner, requireDraftReport, reportController.update);
 
@@ -48,5 +48,6 @@ router.delete('/:id/assignments/:approverId', requireRole('APPROVER'), requireNo
 
 
 module.exports = router;
+
 
 

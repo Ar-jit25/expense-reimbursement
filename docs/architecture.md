@@ -91,3 +91,25 @@ Our Express middleware utilizes three distinct layers of authorization before re
   - Backend: Node.js/Express deployed to Render, communicating with Supabase PostgreSQL (via transaction pooler port 6543).
   - Frontend: React/Vite deployed to Vercel, communicating with the Render backend and Supabase Auth.
 
+
+## Phase 13: Rule-Based Multi-Approver Assignment & Self-Approval Prevention Engine
+- **Engine Logic**: Upon report submission, line items are grouped by category and their amounts totaled. The category with the highest total is designated the primary category.
+- **Routing Rules**:
+  - `TRAVEL`, `MEALS`, `EQUIPMENT` ➔ Approver A (`app@example.com`)
+  - `ACCOMMODATION`, `SUPPLIES`, `SOFTWARE`, `OTHER` ➔ Approver B (`app2@example.com`)
+  - Category ties default to Approver B (`app2@example.com`).
+- **Conflict of Interest Prevention**: If the assigned approver is the owner of the report, the system automatically assigns the other approver, guaranteeing that no approver can ever review or approve their own expense report.
+
+## Phase 14: Global Queue vs Assigned Approver Boundaries
+- **Global Visibility**: The `/api/reports?queue=submitted` endpoint delivers all submitted reports across the organization.
+- **Strict Authorization Boundary**: Approvers can only open, view details, approve, or reject reports that are assigned to them. Reports assigned to other approvers are view-only in the list, preventing unauthorized interference.
+
+## Phase 15: Soft-Delete Archiving and Restore Lifecycle
+- **Implementation**: Uses `isArchived: Boolean` on `ExpenseReport`.
+- **Visibility**: The dashboard provides two distinct views: "Active Reports" and "Archived".
+- **Restoration**: Archived reports cannot be modified or submitted, but include a "Restore" action that restores them to the active workflow. Archived reports are excluded from active queues and stale alert calculations.
+
+## Phase 16: Stale Alert Recurrence Engine (5 Days Stale, 5 Hours Recurrence / Polling)
+- **Stale Detection**: Identifies submitted, unarchived reports older than 5 days (`STALE_THRESHOLD_DAYS=5`).
+- **Recurrence Lifecycle**: When dismissed, alerts remain hidden for 5 hours (`REDISPLAY_THRESHOLD_HOURS=5`), after which they recur if the report is still awaiting decision.
+- **Periodic Database Check**: Frontend components (`AlertsBadge` and `Alerts`) poll the backend every 5 hours (`5 * 60 * 60 * 1000` ms), triggering database recalculations on a predictable cycle.

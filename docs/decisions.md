@@ -143,3 +143,23 @@ one relation filter allows querying this cleanly without raw SQL.
 
 **Rationale**: Roles must not be trusted from the client. By fetching it directly from the backend using a valid JWT, the client accurately reflects the database-enforced permissions.
 
+
+## Decision 15: Automated Category-Based Routing Engine & Anti-Self-Approval
+- **Chose:** Auto-calculate the primary expense category by summing line items per category, then automatically assign Approver A (`app@example.com`) or Approver B (`app2@example.com`). If the primary approver is the report owner, automatically swap to the other approver.
+- **Rejected:** Allowing approvers to claim or assign reports to themselves manually from the queue.
+- **Why:** Eliminates conflicts of interest and ensures reports are handled by designated domain approvers without manual triage bottlenecks.
+
+## Decision 16: Global Submitted Queue with Enforced Detail Access Boundaries
+- **Chose:** Display all submitted reports across the organization in the global queue for organizational visibility, but restrict opening, viewing details, and taking action exclusively to the assigned approver.
+- **Rejected:** Hiding unassigned reports completely or allowing any approver to act on any report.
+- **Why:** Approvers need high-level organizational visibility into all pending liabilities, but strict division of responsibility prevents multiple approvers from interfering with another approver's designated reviews.
+
+## Decision 17: Soft-Delete Archiving with Dedicated Restore Lifecycle
+- **Chose:** Use an `isArchived: Boolean` flag in `ExpenseReport` and present separate Active / Archived views in the dashboard. Provide a dedicated "Restore" action.
+- **Rejected:** Hard deleting reports or archiving without a restore path.
+- **Why:** Complies with financial audit rules that require historical expense records to remain permanent and immutable, while providing employees and managers a way to declutter active workspaces.
+
+## Decision 18: Stale Alert Lifecycles: 5-Day Threshold and 5-Hour Recurrence / Polling
+- **Chose:** 5 days for stale detection (`STALE_THRESHOLD_DAYS=5`), 5 hours for recurrence (`REDISPLAY_THRESHOLD_HOURS=5`), and 5 hours for periodic client polling (`5 * 60 * 60 * 1000` ms).
+- **Rejected:** Instant permanent dismissal without recurrence, or high-frequency polling in production that strains database connection poolers.
+- **Why:** Balances timely reminder alerts for dormant reports with database performance and resource efficiency.

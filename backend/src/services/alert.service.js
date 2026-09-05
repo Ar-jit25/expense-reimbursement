@@ -1,28 +1,48 @@
 ﻿const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-const STALE_THRESHOLD_DAYS = parseInt(process.env.STALE_THRESHOLD_DAYS || '5', 10);
-const REDISPLAY_THRESHOLD_DAYS = parseInt(process.env.REDISPLAY_THRESHOLD_DAYS || '3', 10);
+// Supports minute-based thresholds for testing (preferred if set),
+// falling back to day-based for production.
+function getStaleThresholdMs() {
+  if (process.env.STALE_THRESHOLD_DAYS) {
+    return parseInt(process.env.STALE_THRESHOLD_DAYS, 10) * 24 * 60 * 60 * 1000;
+  }
+  if (process.env.STALE_THRESHOLD_MINUTES) {
+    return parseInt(process.env.STALE_THRESHOLD_MINUTES, 10) * 60 * 1000;
+  }
+  return 5 * 24 * 60 * 60 * 1000; // default 5 days
+}
+
+function getRedisplayThresholdMs() {
+  if (process.env.REDISPLAY_THRESHOLD_HOURS) {
+    return parseInt(process.env.REDISPLAY_THRESHOLD_HOURS, 10) * 60 * 60 * 1000;
+  }
+  if (process.env.REDISPLAY_THRESHOLD_DAYS) {
+    return parseInt(process.env.REDISPLAY_THRESHOLD_DAYS, 10) * 24 * 60 * 60 * 1000;
+  }
+  if (process.env.REDISPLAY_THRESHOLD_MINUTES) {
+    return parseInt(process.env.REDISPLAY_THRESHOLD_MINUTES, 10) * 60 * 1000;
+  }
+  return 5 * 60 * 60 * 1000; // default 5 hours
+}
 
 class AlertService {
   /**
    * Get all active stale alerts for a given approver.
    * A report is stale if:
    * 1. It is SUBMITTED.
-   * 2. submittedAt < now - STALE_THRESHOLD_DAYS.
+   * 2. submittedAt < now - STALE_THRESHOLD.
    * 3. The approver is assigned to the report.
-   * 4. The approver has not dismissed the alert within the REDISPLAY_THRESHOLD_DAYS.
+   * 4. The approver has not dismissed the alert within REDISPLAY_THRESHOLD.
    */
   async getAlerts(approverId) {
-    const staleDate = new Date();
-    staleDate.setDate(staleDate.getDate() - STALE_THRESHOLD_DAYS);
-
-    const redisplayDate = new Date();
-    redisplayDate.setDate(redisplayDate.getDate() - REDISPLAY_THRESHOLD_DAYS);
+    const staleDate = new Date(Date.now() - getStaleThresholdMs());
+    const redisplayDate = new Date(Date.now() - getRedisplayThresholdMs());
 
     const alerts = await prisma.expenseReport.findMany({
       where: {
         status: 'SUBMITTED',
+        isArchived: false,
         submittedAt: { lt: staleDate },
         approvers: { some: { approverId } },
         alerts: {
