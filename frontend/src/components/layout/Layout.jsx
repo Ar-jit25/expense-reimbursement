@@ -1,4 +1,4 @@
-﻿import { Outlet, NavLink, useNavigate, Navigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { FileText, PlusCircle, CheckSquare, LogOut, LayoutDashboard } from 'lucide-react';
 import { AlertsBadge } from '../navigation/AlertsBadge';
@@ -48,9 +48,37 @@ export default function Layout() {
       </div>
       
       <div className="main-content">
-        <header className="header">
-          <div className="font-medium text-muted">Role: {user.role}</div>
-          <button onClick={handleLogout} className="btn btn-outline" style={{ border: 'none', color: '#ef4444' }}>
+        <header className="header" style={{
+          backgroundColor: '#15803d', /* rich green */
+          borderBottom: '1px solid #166534',
+          color: '#ffffff'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.95rem' }}>
+            <span>
+              {user.name || (user.email ? user.email.split('@')[0] : 'User')}
+              {' '}
+              <span style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                padding: '0.2rem 0.6rem',
+                borderRadius: '9999px',
+                fontSize: '0.8rem',
+                fontWeight: 500,
+                textTransform: 'capitalize'
+              }}>
+                ({user.role ? (user.role.charAt(0).toUpperCase() + user.role.slice(1).toLowerCase()) : 'Employee'})
+              </span>
+            </span>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="btn btn-outline"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              color: '#ffffff',
+              padding: '0.4rem 0.85rem'
+            }}
+          >
             <LogOut size={16} /> Logout
           </button>
         </header>

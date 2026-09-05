@@ -4,6 +4,8 @@ import { reportsService } from '../services/reports';
 import { useAuth } from '../context/AuthContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { Badge } from '../components/common/Badge';
+import { checkPolicyViolation } from '../utils/policyLimits';
+import { AlertTriangle } from 'lucide-react';
 
 export default function Approvals() {
   const navigate = useNavigate();
@@ -214,7 +216,31 @@ export default function Approvals() {
                       onChange={() => handleSelect(r.id)} 
                     />
                   </td>
-                  <td onClick={rowClick} style={{ fontWeight: 500 }}>{r.title}</td>
+                  <td onClick={rowClick} style={{ fontWeight: 500 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span>{r.title}</span>
+                        {r.lines && r.lines.some(l => checkPolicyViolation(l.category, l.amount)) && (
+                          <span
+                            title="⚠️ Exceeds budget policy limits — review carefully"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.2rem',
+                              color: '#b45309',
+                              backgroundColor: '#fef3c7',
+                              border: '1px solid #fcd34d',
+                              padding: '0.15rem 0.45rem',
+                              borderRadius: '0.375rem',
+                              fontSize: '0.72rem',
+                              fontWeight: 600
+                            }}
+                          >
+                            <AlertTriangle size={13} color="#d97706" />
+                            <span>⚠️ Over Budget</span>
+                          </span>
+                        )}
+                      </div>
+                    </td>
                   <td onClick={rowClick}><span className="text-muted text-sm">{r.ownerId}</span></td>
                   <td onClick={rowClick}>{formatCurrency(r.total)}</td>
                   <td onClick={rowClick}>{formatDate(r.submittedAt)}</td>

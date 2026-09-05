@@ -1,7 +1,9 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { reportsService } from '../services/reports';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Car, AlertTriangle } from 'lucide-react';
+import MileageCalculatorModal from '../components/common/MileageCalculatorModal';
+import { checkPolicyViolation } from '../utils/policyLimits';
 import { formatCurrency } from '../utils/formatters';
 
 export default function CreateReport() {
@@ -12,6 +14,7 @@ export default function CreateReport() {
   const [lines, setLines] = useState([{ date: '', amount: '', category: 'TRAVEL', description: '' }]);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [showMileageModal, setShowMileageModal] = useState(false);
 
   const total = lines.reduce((acc, line) => acc + (parseFloat(line.amount) || 0), 0);
 
@@ -28,6 +31,18 @@ export default function CreateReport() {
     newLines[idx][field] = value;
     setLines(newLines);
   };
+  const handleApplyMileage = (mileageData) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const targetDate = dateFrom || todayStr;
+    
+    // If the first line is empty, replace it, otherwise append
+    if (lines.length === 1 && !lines[0].date && !lines[0].amount && !lines[0].description) {
+      setLines([{ date: targetDate, ...mileageData }]);
+    } else {
+      setLines([...lines, { date: targetDate, ...mileageData }]);
+    }
+  };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -63,7 +78,7 @@ export default function CreateReport() {
       
       {error && <div className="card bg-red-100 text-red-800 mb-6">{error}</div>}
 
-      <form onSubmit={handleSubmit} className="card">
+      <form onSubmit={handleSubmit} className="card create-report-card">
         <div className="mb-6">
           <label className="text-sm font-medium" style={{ display: 'block', marginBottom: '0.5rem' }}>Report Title</label>
           <input className="input" required value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g., Q3 Sales Trip to NYC" />
@@ -80,7 +95,17 @@ export default function CreateReport() {
           </div>
         </div>
 
-        <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem' }}>Expense Lines</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Expense Lines</h3>
+          <button
+            type="button"
+            className="btn btn-outline"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', borderColor: '#16a34a', color: '#16a34a' }}
+            onClick={() => setShowMileageModal(true)}
+          >
+            <Car size={16} /> Calculate Mileage
+          </button>
+        </div>
         
         {lines.map((line, idx) => (
           <div key={idx} className="flex gap-4 items-center mb-4 p-4 bg-gray-100" style={{ borderRadius: '0.375rem' }}>
@@ -98,19 +123,45 @@ export default function CreateReport() {
                 <option value="EQUIPMENT">Equipment</option>
                 <option value="OTHER">Other</option>
               </select>
-              <input className="input" required placeholder="Description" value={line.description} onChange={e => updateLine(idx, 'description', e.target.value)} />
+              <input type="text" className="input" required placeholder="Description / Vendor" value={line.description} onChange={e => updateLine(idx, 'description', e.target.value)} />
             </div>
-            {lines.length > 1 && (
-              <button type="button" className="btn btn-outline" style={{ color: '#ef4444' }} onClick={() => removeLine(idx)}>
-                <Trash2 size={16} />
-              </button>
-            )}
+
+            {/* Policy Warning if amount exceeds threshold */}
+            {(() => {
+              const warning = checkPolicyViolation(line.category, line.amount);
+              if (!warning) return null;
+              return (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.4rem',
+                  fontSize: '0.72rem',
+                  color: '#92400e',
+                  backgroundColor: '#fef3c7',
+                  border: '1px solid #fde68a',
+                  padding: '0.4rem 0.6rem',
+                  borderRadius: '0.375rem',
+                  maxWidth: '220px',
+                  lineHeight: '1.25'
+                }} title={warning.warningMessage}>
+                  <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: '2px', color: '#d97706' }} />
+                  <div>
+                    <div style={{ fontWeight: 600 }}>Exceeds ${warning.limit} limit</div>
+                    <div style={{ color: '#b45309' }}>Kindly document the reason in the description.</div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <button type="button" onClick={() => removeLine(idx)} className="btn btn-outline" style={{ color: 'var(--danger-color)', border: 'none', padding: '0.5rem' }}>
+              <Trash2 size={18} />
+            </button>
           </div>
         ))}
 
-        <div className="flex justify-between items-center mt-6 pt-6 border-b" style={{ borderTop: '1px solid #e2e8f0', borderBottom: 'none' }}>
-          <button type="button" className="btn btn-outline" onClick={addLine}>+ Add Another Expense</button>
-          <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>Total: {formatCurrency(total)}</div>
+        <div className="flex justify-between items-center mt-4">
+          <button type="button" onClick={addLine} className="btn btn-outline">+ Add Expense Line</button>
+          <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Total: ${total.toFixed(2)}</div>
         </div>
 
         <div className="mt-6 flex justify-end gap-4">
@@ -120,6 +171,11 @@ export default function CreateReport() {
           </button>
         </div>
       </form>
+      <MileageCalculatorModal
+        isOpen={showMileageModal}
+        onClose={() => setShowMileageModal(false)}
+        onApply={handleApplyMileage}
+      />
     </div>
   );
 }

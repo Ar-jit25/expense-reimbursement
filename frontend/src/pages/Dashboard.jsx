@@ -5,6 +5,9 @@ import { useAuth } from '../context/AuthContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { Badge } from '../components/common/Badge';
 import { AnalyticsOverview } from '../components/dashboard/AnalyticsOverview';
+import { checkPolicyViolation } from '../utils/policyLimits';
+import { AlertTriangle } from 'lucide-react';
+import { Filter } from 'lucide-react';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -110,27 +113,45 @@ export default function Dashboard() {
       </div>
 
       {view === 'active' && (
-        <div className="card mb-6 flex gap-4">
+        <div className="card mb-6 flex gap-4" style={{ alignItems: 'center' }}>
           <form onSubmit={handleSearch} className="flex gap-2" style={{ flex: 1 }}>
             <input
-              className="input" placeholder="Search title..."
+              className="input search-input-custom" placeholder="Search title..."
               value={search} onChange={(e) => setSearch(e.target.value)}
             />
-            <button type="submit" className="btn btn-outline">Search</button>
+            <button type="submit" className="btn btn-search-green">Search</button>
           </form>
-          <select className="select" style={{ width: '200px' }} value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-            <option value="">All Statuses</option>
-            <option value="DRAFT">Draft</option>
-            <option value="SUBMITTED">Submitted</option>
-            <option value="APPROVED">Approved</option>
-            <option value="REJECTED">Rejected</option>
-            <option value="PAID">Paid</option>
-          </select>
-          <select className="select" style={{ width: '200px' }} value={sort} onChange={(e) => { setSort(e.target.value); setPage(1); }}>
-            <option value="createdAt">Newest First</option>
-            <option value="submittedAt">Submitted Date</option>
-            <option value="total">Total Amount</option>
-          </select>
+
+          {/* Status filter with grey background and filter symbol */}
+          <div className="filter-badge-wrapper" title="Filter by Status">
+            <Filter size={15} color="#64748b" />
+            <select
+              className="filter-select-inline"
+              value={status}
+              onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+            >
+              <option value="">All Statuses</option>
+              <option value="DRAFT">Draft</option>
+              <option value="SUBMITTED">Submitted</option>
+              <option value="APPROVED">Approved</option>
+              <option value="REJECTED">Rejected</option>
+              <option value="PAID">Paid</option>
+            </select>
+          </div>
+
+          {/* Sort filter with grey background and filter symbol */}
+          <div className="filter-badge-wrapper" title="Sort Order">
+            <Filter size={15} color="#64748b" />
+            <select
+              className="filter-select-inline"
+              value={sort}
+              onChange={(e) => { setSort(e.target.value); setPage(1); }}
+            >
+              <option value="createdAt">Newest First</option>
+              <option value="submittedAt">Submitted Date</option>
+              <option value="total">Total Amount</option>
+            </select>
+          </div>
         </div>
       )}
 
@@ -161,7 +182,31 @@ export default function Dashboard() {
                   style={{ cursor: view === 'active' ? 'pointer' : 'default' }}
                   onClick={() => { if (view === 'active') navigate(`/reports/${r.id}`); }}
                 >
-                  <td style={{ fontWeight: 500 }}>{r.title}</td>
+                  <td style={{ fontWeight: 500 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span>{r.title}</span>
+                      {r.lines && r.lines.some(l => checkPolicyViolation(l.category, l.amount)) && (
+                        <span
+                          title="⚠️ Exceeds budget policy limits — review carefully"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.2rem',
+                            color: '#b45309',
+                            backgroundColor: '#fef3c7',
+                            border: '1px solid #fcd34d',
+                            padding: '0.15rem 0.45rem',
+                            borderRadius: '0.375rem',
+                            fontSize: '0.72rem',
+                            fontWeight: 600
+                          }}
+                        >
+                          <AlertTriangle size={13} color="#d97706" />
+                          <span>⚠️ Over Budget</span>
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td><Badge status={r.status} /></td>
                   <td>{formatCurrency(r.total)}</td>
                   <td>{formatDate(r.createdAt)}</td>

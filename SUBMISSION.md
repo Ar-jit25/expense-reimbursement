@@ -4,8 +4,8 @@ Fill this in and commit it. This is the first file we open.
 
 ## Links
 
-- **GitHub repository:** <public repo URL>https://github.com/Ar-jit25/expense-reimbursement
-- **Live application:** <deployed URL>https://expense-reimbursement-eta.vercel.app/
+- **GitHub repository:** https://github.com/Ar-jit25/expense-reimbursement
+- **Live application:** https://expense-reimbursement-eta.vercel.app/
 
 ## Notes for the reviewer
 
@@ -48,6 +48,20 @@ Mark each honestly. Partial is fine - say what is partial.
 | 8 | A dashboard | Done | Approver landing dashboard displaying headline KPIs (awaiting approval, reimbursements due, approved this week, paid this week), category breakdown, status distribution, and 8-week trailing payment trends visualized using Recharts. Hidden for employee logins to preserve privacy. |
 | 9 | History you cannot rewrite | Done | Append-only ReportHistory table recording previous status, new status, actor, timestamp, and rejection reason within atomic transactions. Separate immutable Comment table for user notes. Deletion and mutation strictly restricted (onDelete: Restrict). |
 | 10 | Stale-approval alerts | Done | Background evaluation flagging SUBMITTED reports idling past 5 days. Navigation badge counter. Approvers can dismiss alerts for assigned reports. Alerts recur if the report remains unreviewed after a 5-hour window. Frontend polls periodically (every 5 hours) with manual refresh support. |
+
+
+## Stretch Features Implemented
+
+1. **A Mileage Calculator for Vehicle Expense Lines:**
+   - Integrated directly into both the Create Report and Edit Report workflows via an interactive modal.
+   - Calculates exact reimbursements based on distance driven and standard mileage rates ($0.67/mile).
+   - Automatically populates the line item amount, sets category to `TRAVEL`, and appends route details and trip notes to the description.
+
+2. **Per-Category Spending Limits & Policy Warnings:**
+   - Configured company spending guidelines across categories (e.g. Meals $75, Accommodation $250, Travel $350, Software $200, Equipment $500, Supplies $100).
+   - **For Employees:** When an entered amount exceeds the limit, displays an amber advisory warning: *"Exceeds $[limit] limit - Kindly document the reason in the description."*
+   - **In Approver Queues & Dashboard:** Reports containing over-limit expenses display an explicit `[WARNING] Over Budget` badge beside the report title for instant triaging.
+   - **In Report Details:** Prominently alerts approvers with a policy scrutiny banner and individual line-by-line compliance badges (`Exceeds limit` vs `Within Policy`).
 
 ## How much time did you actually spend?
 

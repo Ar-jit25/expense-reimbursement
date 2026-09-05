@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { reportsService } from '../services/reports';
+import { AlertTriangle, ShieldAlert } from 'lucide-react';
+import { checkPolicyViolation } from '../utils/policyLimits';
 import { useAuth } from '../context/AuthContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { Badge } from '../components/common/Badge';
@@ -54,7 +56,11 @@ export default function ReportDetails() {
   if (error) return <div className="p-6 card bg-red-100 text-red-800 m-6">{error}</div>;
   if (!report) return <div className="p-6 text-center">Report not found</div>;
 
+  
   const total = report.lines?.reduce((acc, line) => acc + parseFloat(line.amount), 0) || 0;
+  const policyViolations = report.lines?.filter(l => checkPolicyViolation(l.category, l.amount)) || [];
+  const hasPolicyViolations = policyViolations.length > 0;
+
   
   // Authorization rules
   const isOwner = report.ownerId === user.id;
@@ -89,7 +95,33 @@ export default function ReportDetails() {
 
       {actionError && <div className="card bg-red-100 text-red-800 mb-6">{actionError}</div>}
 
-      <div className="card mb-6">
+      
+        {/* Approver Policy Alert Banner */}
+        {isApprover && hasPolicyViolations && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            padding: '1rem 1.25rem',
+            backgroundColor: '#fffbeb',
+            border: '2px solid #f59e0b',
+            borderRadius: '0.5rem',
+            marginBottom: '1.5rem',
+            boxShadow: '0 1px 3px rgba(245, 158, 11, 0.15)'
+          }}>
+            <ShieldAlert size={28} color="#d97706" style={{ flexShrink: 0 }} />
+            <div>
+              <div style={{ fontWeight: 700, color: '#92400e', fontSize: '0.95rem' }}>
+                ⚠️ Policy Alert: One or more expenses exceed standard budget limits
+              </div>
+              <div style={{ color: '#b45309', fontSize: '0.85rem', marginTop: '0.15rem' }}>
+                This report contains {policyViolations.length} line item(s) exceeding standard company policy thresholds. Kindly review the employee's justification in the description carefully before deciding to approve or reject.
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="card mb-6">
         <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem' }}>Expense Lines</h3>
         <table className="table">
           <thead>
@@ -97,20 +129,56 @@ export default function ReportDetails() {
               <th>Date</th>
               <th>Category</th>
               <th>Description</th>
+              <th>Policy Review</th>
               <th style={{ textAlign: 'right' }}>Amount</th>
             </tr>
           </thead>
           <tbody>
-            {report.lines?.map((line) => (
-              <tr key={line.id}>
-                <td>{formatDate(line.date)}</td>
-                <td>{line.category}</td>
-                <td>{line.description}</td>
-                <td style={{ textAlign: 'right', fontWeight: 500 }}>{formatCurrency(line.amount)}</td>
-              </tr>
-            ))}
+            {report.lines?.map((line) => {
+              const violation = checkPolicyViolation(line.category, line.amount);
+              return (
+                <tr key={line.id} style={{ backgroundColor: violation ? '#fffdf5' : 'transparent' }}>
+                  <td>{formatDate(line.date)}</td>
+                  <td>{line.category}</td>
+                  <td>{line.description}</td>
+                  <td>
+                    {violation ? (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        fontSize: '0.75rem',
+                        color: '#92400e',
+                        backgroundColor: '#fef3c7',
+                        border: '1px solid #fcd34d',
+                        padding: '0.25rem 0.55rem',
+                        borderRadius: '0.375rem',
+                        fontWeight: 600
+                      }} title={violation.warningMessage}>
+                        <AlertTriangle size={13} color="#d97706" />
+                        Exceeds ${violation.limit} limit (+${violation.exceededBy})
+                      </span>
+                    ) : (
+                      <span style={{
+                        fontSize: '0.75rem',
+                        color: '#15803d',
+                        backgroundColor: '#dcfce7',
+                        padding: '0.25rem 0.55rem',
+                        borderRadius: '0.375rem',
+                        fontWeight: 500
+                      }}>
+                        ✓ Within Policy
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ textAlign: 'right', fontWeight: 600, color: violation ? '#b45309' : 'inherit' }}>
+                    {formatCurrency(line.amount)}
+                  </td>
+                </tr>
+              );
+            })}
             {(!report.lines || report.lines.length === 0) && (
-              <tr><td colSpan="4" className="text-center text-muted p-4">No expense lines attached.</td></tr>
+              <tr><td colSpan="5" className="text-center text-muted p-4">No expense lines attached.</td></tr>
             )}
           </tbody>
         </table>
